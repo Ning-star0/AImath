@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  FILL_BLANK
+  SHORT_ANSWER
+}
+
+enum ExerciseStatus {
+  PENDING
+  SUBMITTED
+  COMPLETED
+}
+
+enum MasteryLevel {
+  WEAK
+  BASIC
+  GOOD
+  EXCELLENT
+}
+
+model User {
+  id              String           @id @default(cuid())
+  username        String           @unique
+  email           String?          @unique
+  phone           String?          @unique
+  passwordHash    String
+  role            Role             @default(STUDENT)
+  displayName     String
+  isActive        Boolean          @default(true)
+  avatarUrl       String?
+  meta            Json?
+  student         Student?
+  teacher         Teacher?
+  exerciseRecords ExerciseRecord[]
+  wrongQuestions  WrongQuestion[]
+  aiQaRecords     AiQaRecord[]
+  learningReports LearningReport[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Student {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  studentCode     String           @unique
+  grade           Int
+  className       String?
+  schoolName      String?
+  guardianName    String?
+  guardianPhone   String?
+  learningProfile Json?
+  extra           Json?
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseRecords ExerciseRecord[]
+  wrongQuestions  WrongQuestion[]
+  aiQaRecords     AiQaRecord[]
+  learningReports LearningReport[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([grade])
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  teacherCode String?  @unique
+  subject     String?  @default("MATH")
+  schoolName  String?
+  classInfo   Json?
+  extra       Json?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Question {
+  id                    String                   @id @default(cuid())
+  title                 String
+  stem                  String
+  questionType          QuestionType
+  grade                 Int
+  difficulty            Int                      @default(1)
+  answer                String
+  options               Json?
+  analysis              String?
+  tags                  String[]
+  metadata              Json?
+  source                String?
+  knowledgeGraphHint    Json?
+  questionKnowledgeMaps QuestionKnowledgePoint[]
+  exerciseDetails       ExerciseRecordDetail[]
+  wrongQuestions        WrongQuestion[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([grade])
+  @@index([difficulty])
+  @@index([questionType])
+}
+
+model KnowledgePoint {
+  id                String                   @id @default(cuid())
+  code              String                   @unique
+  name              String
+  description       String?
+  grade             Int
+  chapter           String?
+  parentId          String?
+  graphMeta         Json?
+  parent            KnowledgePoint?          @relation("KnowledgePointTree", fields: [parentId], references: [id])
+  children          KnowledgePoint[]         @relation("KnowledgePointTree")
+  questionRelations QuestionKnowledgePoint[]
+  wrongQuestions    WrongQuestion[]
+  reportDetails     LearningReport[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([grade])
+  @@index([parentId])
+}
+
+model QuestionKnowledgePoint {
+  id               String         @id @default(cuid())
+  questionId       String
+  knowledgePointId String
+  sortOrder        Int            @default(0)
+  relevanceScore   Float          @default(1)
+  question         Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  knowledgePoint   KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([questionId, knowledgePointId])
+  @@index([knowledgePointId])
+  @@index([questionId])
+}
+
+model ExerciseRecord {
+  id                  String                 @id @default(cuid())
+  userId              String
+  studentId           String?
+  status              ExerciseStatus         @default(PENDING)
+  grade               Int?
+  totalCount          Int                    @default(0)
+  correctCount        Int                    @default(0)
+  accuracyRate        Float                  @default(0)
+  submittedAt         DateTime?
+  summary             Json?
+  recommendationDraft Json?
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student             Student?               @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  details             ExerciseRecordDetail[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([studentId])
+  @@index([status])
+}
+
+model ExerciseRecordDetail {
+  id                String         @id @default(cuid())
+  exerciseRecordId  String
+  questionId        String
+  studentAnswer     String?
+  correctAnswer     String?
+  isCorrect         Boolean?
+  score             Float?
+  feedback          String?
+  knowledgeSnapshot Json?
+  exerciseRecord    ExerciseRecord @relation(fields: [exerciseRecordId], references: [id], onDelete: Cascade)
+  question          Question       @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([exerciseRecordId])
+  @@index([questionId])
+  @@index([isCorrect])
+}
+
+model WrongQuestion {
+  id                  String          @id @default(cuid())
+  userId              String
+  studentId           String?
+  questionId          String
+  knowledgePointId    String?
+  exerciseRecordId    String?
+  exerciseDetailId    String?
+  wrongCount          Int             @default(1)
+  lastWrongAnswer     String?
+  resolved            Boolean         @default(false)
+  reviewStatus        String?         @default("PENDING")
+  archivedAt          DateTime?
+  recommendationDraft Json?
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student             Student?        @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  question            Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  knowledgePoint      KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([userId, resolved])
+  @@index([studentId])
+  @@index([questionId])
+  @@index([knowledgePointId])
+  @@index([archivedAt])
+}
+
+model AiQaRecord {
+  id                String   @id @default(cuid())
+  userId            String
+  studentId         String?
+  originalQuestion  String
+  finalAnswer       String
+  parsedResult      Json?
+  sourceContext     Json?
+  grade             Int?
+  modelName         String?
+  recommendedDrafts Json?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student           Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([studentId])
+  @@index([grade])
+  @@index([createdAt])
+}
+
+model LearningReport {
+  id                    String          @id @default(cuid())
+  userId                String
+  studentId             String?
+  knowledgePointId      String?
+  reportDate            DateTime
+  periodType            String          @default("WEEKLY")
+  totalQuestions        Int             @default(0)
+  correctCount          Int             @default(0)
+  wrongCount            Int             @default(0)
+  accuracyRate          Float           @default(0)
+  masteryLevel          MasteryLevel    @default(BASIC)
+  trendSummary          String?
+  reportPayload         Json?
+  recommendationPayload Json?
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student               Student?        @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  knowledgePoint        KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([userId, reportDate])
+  @@index([studentId, reportDate])
+  @@index([knowledgePointId])
+}

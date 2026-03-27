@@ -1,0 +1,201 @@
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
+
+export interface LoginPayload {
+  account: string;
+  password: string;
+}
+
+export interface UserProfile {
+  id: string;
+  username?: string;
+  account?: string;
+  displayName: string;
+  role: UserRole;
+  grade?: number | null;
+  studentCode?: string | null;
+  teacherCode?: string | null;
+  student?: {
+    id: string;
+    userId: string;
+    studentCode: string;
+    grade: number;
+    schoolName?: string | null;
+    className?: string | null;
+  } | null;
+}
+
+export interface LoginResult {
+  accessToken: string;
+  user: UserProfile;
+}
+
+export interface UpdateStudentProfilePayload {
+  grade: number;
+}
+
+export interface KnowledgePointSummary {
+  id: string;
+  code: string;
+  name: string;
+  grade?: number;
+}
+
+export interface QuestionItem {
+  id: string;
+  title: string;
+  stem: string;
+  questionType: string;
+  grade: number;
+  difficulty: number;
+  answer: string;
+  options?: Array<{ label: string; value: string }> | null;
+  analysis?: string | null;
+  tags: string[];
+  knowledgePoints?: KnowledgePointSummary[];
+}
+
+export interface QuestionListResult {
+  list: QuestionItem[];
+  total: number;
+}
+
+export interface SubmitExercisePayload {
+  answers: Array<{
+    questionId: string;
+    answer: string;
+  }>;
+  context?: Record<string, unknown>;
+}
+
+export interface ExerciseSubmitResult {
+  id: string;
+  totalCount: number;
+  correctCount: number;
+  wrongCount: number;
+  accuracyRate: number;
+  submittedAt?: string | null;
+  details?: Array<{
+    questionId: string;
+    questionTitle: string;
+    studentAnswer: string | null;
+    correctAnswer: string | null;
+    isCorrect: boolean | null;
+    feedback: string | null;
+  }>;
+}
+
+export interface AiQaResult {
+  originalQuestion: string;
+  steps: string[];
+  finalAnswer: string;
+  knowledgePoints: string[];
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  riskNotice: string;
+  similarQuestions: string[];
+  recordId?: string | null;
+  ocrPlaceholder?: {
+    enabled: boolean;
+    status: string;
+    note: string;
+  };
+}
+
+export interface WrongQuestionItem {
+  id: string;
+  questionId: string;
+  questionTitle: string;
+  questionStem: string;
+  questionType?: string;
+  grade?: number;
+  options?: Array<{ label: string; value: string }> | null;
+  wrongCount: number;
+  resolved: boolean;
+  lastWrongAnswer?: string | null;
+  reviewStatus?: string | null;
+  archivedAt?: string | null;
+  knowledgePoint?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  retryEntry?: {
+    action: string;
+    path: string;
+    questionId: string;
+  };
+  updatedAt?: string;
+}
+
+export interface WrongbookListResult {
+  list: WrongQuestionItem[];
+  total: number;
+}
+
+export interface WrongbookStatsResult {
+  totalWrongQuestions: number;
+  unresolvedCount: number;
+  resolvedCount: number;
+  archivedCount?: number;
+  groupedByKnowledgePoint: Array<{
+    knowledgePointId: string;
+    knowledgePointName: string;
+    count: number;
+  }>;
+  groupedByQuestionType?: Array<{
+    questionType: string;
+    count: number;
+  }>;
+}
+
+export interface ReportOverviewResult {
+  totalQuestions: number;
+  correctCount: number;
+  wrongCount: number;
+  accuracyRate: number;
+  aiQaCount?: number;
+  masteryByKnowledgePoint: Array<{
+    knowledgePointId: string;
+    knowledgePointName: string;
+    correctCount: number;
+    wrongCount: number;
+    correctRate: number;
+    total: number;
+  }>;
+  learningTrend: Array<{
+    date: string;
+    practiceCount?: number;
+    totalQuestions?: number;
+    correctCount?: number;
+    accuracyRate: number;
+  }>;
+  questionDrilldowns: {
+    all: ReportQuestionDrilldownItem[];
+    correct: ReportQuestionDrilldownItem[];
+    wrong: ReportQuestionDrilldownItem[];
+  };
+}
+
+export interface ReportQuestionDrilldownItem {
+  questionId: string;
+  title: string;
+  stem: string;
+  questionType: string;
+  grade: number;
+  difficulty: number;
+  studentAnswer: string | null;
+  correctAnswer: string | null;
+  isCorrect: boolean;
+  feedback: string | null;
+  latestSubmittedAt: string;
+  knowledgePoints: Array<{
+    id: string;
+    code: string;
+    name: string;
+  }>;
+}

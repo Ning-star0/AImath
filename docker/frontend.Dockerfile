@@ -1,0 +1,44 @@
+FROM node:20-alpine AS deps
+WORKDIR /app
+RUN corepack enable
+
+COPY package.json pnpm-workspace.yaml ./
+COPY frontend/package.json ./frontend/package.json
+RUN pnpm install --filter frontend... --no-frozen-lockfile
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN corepack enable
+
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
+COPY package.json pnpm-workspace.yaml ./
+COPY frontend ./frontend
+
+WORKDIR /app/frontend
+RUN pnpm build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN corepack enable
+
+ENV NODE_ENV=production
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
+COPY package.json pnpm-workspace.yaml ./
+COPY frontend/package.json ./frontend/package.json
+COPY --from=builder /app/frontend/.next ./frontend/.next
+COPY --from=builder /app/frontend/next.config.ts ./frontend/next.config.ts
+COPY --from=builder /app/frontend/package.json ./frontend/package.json
+
+WORKDIR /app/frontend
+
+EXPOSE 3000
+
+CMD ["pnpm", "start"]
