@@ -1,4 +1,6 @@
-FROM node:20-alpine AS deps
+ARG NODE_IMAGE=node:20-alpine
+
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 RUN corepack enable
 
@@ -6,7 +8,7 @@ COPY package.json pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/package.json
 RUN pnpm install --filter backend... --no-frozen-lockfile
 
-FROM node:20-alpine AS builder
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 RUN corepack enable
 
@@ -19,7 +21,7 @@ WORKDIR /app/backend
 RUN pnpm prisma generate
 RUN pnpm build
 
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 RUN corepack enable
 

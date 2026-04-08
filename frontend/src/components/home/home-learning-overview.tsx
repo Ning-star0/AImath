@@ -73,17 +73,34 @@ export function HomeLearningOverview() {
   const recentPracticeItems = report?.learningTrend.slice(-3).reverse() ?? [];
 
   return (
-    <section className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+    <section className="mx-auto mt-2 max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#6d90a8]">
+            Learning Snapshot
+          </p>
+          <h2 className="font-home text-3xl font-black text-[#28405d]">
+            学习数据观察站
+          </h2>
+        </div>
+        <div className="rounded-full border border-white/70 bg-white/70 px-4 py-2 text-sm font-semibold text-[#577389] shadow-[0_10px_18px_rgba(122,178,215,0.16)] backdrop-blur">
+          科学探索式成长看板
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
       <div className="space-y-6">
-        <section className="rounded-[2rem] border border-white/80 bg-white/90 p-8 shadow-card">
+        <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(245,252,255,0.92),rgba(255,255,255,0.95))] p-8 shadow-[0_24px_48px_rgba(104,166,210,0.16)] backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6a8da7]">
                 学习进度
               </p>
-              <h3 className="mt-3 text-2xl font-bold text-ink">看看最近的学习状态</h3>
+              <h3 className="font-home mt-3 text-2xl font-black text-[#24384e]">
+                看看最近的学习状态
+              </h3>
             </div>
-            <div className="rounded-full bg-brand-50 px-4 py-2 text-sm text-brand-700">
+            <div className="rounded-full border border-[#d0ecff] bg-[#edf9ff] px-4 py-2 text-sm font-semibold text-[#36749b]">
               {currentUser?.grade ?? currentUser?.student?.grade ?? 3} 年级
             </div>
           </div>
@@ -106,27 +123,27 @@ export function HomeLearningOverview() {
 
           {accessToken && report ? (
             <div className="mt-6 grid gap-4 md:grid-cols-4">
-              <div className="rounded-2xl bg-brand-50 p-4">
+              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#eefbff,#ddf5ff)]">
                 <p className="text-sm text-slate-500">总做题数</p>
-                <p className="mt-2 text-3xl font-bold text-brand-700">
+                <p className="mt-2 font-home text-3xl font-black text-[#2777a6]">
                   {report.totalQuestions}
                 </p>
               </div>
-              <div className="rounded-2xl bg-emerald-50 p-4">
+              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#efffec,#e0f9db)]">
                 <p className="text-sm text-slate-500">正确率</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-700">
+                <p className="mt-2 font-home text-3xl font-black text-[#2f8e3d]">
                   {report.accuracyRate}%
                 </p>
               </div>
-              <div className="rounded-2xl bg-amber-50 p-4">
+              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#fff8de,#fff0bd)]">
                 <p className="text-sm text-slate-500">待复习错题</p>
-                <p className="mt-2 text-3xl font-bold text-amber-700">
+                <p className="mt-2 font-home text-3xl font-black text-[#b17b14]">
                   {wrongbookStats?.unresolvedCount ?? 0}
                 </p>
               </div>
-              <div className="rounded-2xl bg-sky-50 p-4">
+              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#f6f0ff,#ece2ff)]">
                 <p className="text-sm text-slate-500">AI 答疑次数</p>
-                <p className="mt-2 text-3xl font-bold text-sky-700">
+                <p className="mt-2 font-home text-3xl font-black text-[#7351c9]">
                   {report.aiQaCount ?? 0}
                 </p>
               </div>
@@ -134,8 +151,8 @@ export function HomeLearningOverview() {
           ) : null}
         </section>
 
-        <section className="rounded-[2rem] border border-white/80 bg-white/90 p-8 shadow-card">
-          <h3 className="text-2xl font-bold text-ink">最近错题</h3>
+        <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,251,239,0.94),rgba(255,255,255,0.96))] p-8 shadow-[0_24px_48px_rgba(190,157,75,0.14)] backdrop-blur">
+          <h3 className="font-home text-2xl font-black text-[#413623]">最近错题</h3>
           <div className="mt-5 space-y-4">
             {recentWrongItems.length === 0 ? (
               <p className="text-sm leading-7 text-slate-600">
@@ -145,11 +162,13 @@ export function HomeLearningOverview() {
               recentWrongItems.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4"
+                  className="rounded-[1.4rem] border border-[#f1deaf] bg-[linear-gradient(180deg,#fffef7,#fff7db)] p-5 shadow-[0_12px_20px_rgba(211,183,110,0.12)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_28px_rgba(211,183,110,0.18)]"
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <h4 className="font-semibold text-ink">{item.questionTitle}</h4>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500">
+                    <h4 className="font-home text-lg font-black text-[#3b3229]">
+                      {item.questionTitle}
+                    </h4>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                       已错 {item.wrongCount} 次
                     </span>
                   </div>
@@ -163,8 +182,8 @@ export function HomeLearningOverview() {
         </section>
       </div>
 
-      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-8 shadow-card">
-        <h3 className="text-2xl font-bold text-ink">最近练习记录</h3>
+      <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(243,248,255,0.94),rgba(255,255,255,0.96))] p-8 shadow-[0_24px_48px_rgba(109,145,195,0.14)] backdrop-blur">
+        <h3 className="font-home text-2xl font-black text-[#2c3b58]">最近练习记录</h3>
         <div className="mt-5 space-y-4">
           {recentPracticeItems.length === 0 ? (
             <p className="text-sm leading-7 text-slate-600">
@@ -174,18 +193,20 @@ export function HomeLearningOverview() {
             recentPracticeItems.map((item) => (
               <article
                 key={item.date}
-                className="rounded-2xl bg-gradient-to-r from-slate-50 to-white p-4"
+                className="rounded-[1.45rem] border border-[#d9e8ff] bg-[linear-gradient(90deg,#eef6ff,#ffffff)] p-5 shadow-[0_12px_20px_rgba(133,164,214,0.12)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_28px_rgba(133,164,214,0.18)]"
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-ink">{item.date}</p>
+                    <p className="font-home text-lg font-black text-[#33425d]">
+                      {item.date}
+                    </p>
                     <p className="mt-1 text-sm text-slate-500">
                       {(item.practiceCount ?? 0)} 次练习 · {(item.totalQuestions ?? 0)} 题
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-400">正确率</p>
-                    <p className="text-2xl font-bold text-brand-700">
+                    <p className="font-home text-2xl font-black text-[#3366b4]">
                       {item.accuracyRate}%
                     </p>
                   </div>
@@ -195,6 +216,7 @@ export function HomeLearningOverview() {
           )}
         </div>
       </section>
+      </div>
     </section>
   );
 }

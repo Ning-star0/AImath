@@ -8,6 +8,9 @@
   --brand-strong: #116546;
   --brand-soft: #d7f7e8;
   --text-main: #1f2937;
+  --home-font:
+    'Comfortaa', 'Nunito', 'Baloo 2', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
 }
 
 html,
@@ -68,4 +71,172 @@ a {
 
 ::selection {
   background: rgba(125, 211, 252, 0.32);
+}
+
+.font-home {
+  font-family: var(--home-font);
+}
+
+.home-lab-shell {
+  background:
+    radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.85), transparent 12%),
+    radial-gradient(circle at 84% 16%, rgba(255, 255, 255, 0.82), transparent 13%),
+    radial-gradient(circle at 14% 88%, rgba(180, 235, 103, 0.28), transparent 18%),
+    radial-gradient(circle at 90% 85%, rgba(255, 212, 104, 0.28), transparent 16%),
+    linear-gradient(180deg, #7dddf2 0%, #a5ecff 28%, #d7f5ff 58%, #efffe0 84%, #f7ffd6 100%);
+  position: relative;
+}
+
+.home-lab-shell::before,
+.home-lab-shell::after {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+
+.home-lab-shell::before {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 13rem;
+  background:
+    radial-gradient(circle at 10% 70%, rgba(139, 202, 69, 0.32), transparent 18%),
+    radial-gradient(circle at 80% 76%, rgba(255, 186, 74, 0.24), transparent 16%),
+    linear-gradient(180deg, rgba(220, 255, 158, 0), rgba(214, 249, 129, 0.72));
+}
+
+.home-lab-shell::after {
+  left: 3%;
+  bottom: 9rem;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), transparent 52%),
+    rgba(255, 255, 255, 0.32);
+  filter: blur(18px);
+}
+
+.home-lab-nav-button {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 251, 255, 0.92));
+  box-shadow:
+    0 8px 14px rgba(101, 156, 201, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  padding: 0.6rem 1rem;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.home-lab-nav-button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 12px 20px rgba(101, 156, 201, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.home-lab-input {
+  width: 100%;
+  border: 2px solid #d0d8df;
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #24323c;
+  font-size: 0.98rem;
+  padding: 1rem 1.1rem;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.home-lab-input:hover,
+.home-lab-input:focus {
+  border-color: #228b22;
+  background: #fffdf7;
+  box-shadow:
+    0 0 0 4px rgba(34, 139, 34, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.home-lab-primary-button,
+.home-lab-secondary-button,
+.home-lab-pressable,
+.home-lab-role-card,
+.home-lab-stat-card {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.home-lab-primary-button {
+  border: 0;
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, #228b22, #1a6d1a);
+  box-shadow:
+    0 10px 18px rgba(26, 109, 26, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+  min-height: 3.5rem;
+  padding: 0.95rem 1.6rem;
+}
+
+.home-lab-primary-button:hover,
+.home-lab-secondary-button:hover,
+.home-lab-pressable:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.home-lab-primary-button:active,
+.home-lab-secondary-button:active,
+.home-lab-pressable:active {
+  filter: brightness(1.2);
+  transform: translateY(0) scale(0.98);
+}
+
+.home-lab-secondary-button {
+  border: 1px solid rgba(145, 180, 210, 0.55);
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(240, 248, 255, 0.88));
+  box-shadow:
+    0 10px 18px rgba(122, 170, 215, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.home-lab-role-card {
+  align-items: center;
+  border-width: 2px;
+  border-radius: 1.6rem;
+  display: flex;
+  gap: 1.1rem;
+  min-height: 8rem;
+  padding: 1rem;
+  box-shadow:
+    0 12px 22px rgba(125, 136, 157, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.home-lab-role-card:hover {
+  transform: translateY(-5px);
+}
+
+.home-lab-stat-card {
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 12px 20px rgba(115, 164, 207, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  padding: 1rem;
 }

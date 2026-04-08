@@ -14,10 +14,27 @@ async function bootstrap() {
     'frontendUrl',
     'http://localhost:3000',
   );
+  const frontendUrls = configService.get<string>('frontendUrls', '');
   const port = configService.get<number>('port', 3001);
 
+  const allowedOrigins = Array.from(
+    new Set(
+      [
+        frontendUrl,
+        ...frontendUrls
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+        'http://localhost',
+        'http://localhost:3000',
+        'http://127.0.0.1',
+        'http://127.0.0.1:3000',
+      ].filter(Boolean),
+    ),
+  );
+
   app.enableCors({
-    origin: frontendUrl,
+    origin: allowedOrigins,
     credentials: true,
   });
 
