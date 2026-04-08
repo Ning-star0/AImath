@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { getRoleProfilePath } from '@/lib/role-route';
 import { useUserStore } from '@/store/use-user-store';
 
@@ -14,20 +15,60 @@ interface PageShellProps {
   navItems?: Array<{ href: string; label: string }>;
 }
 
-const defaultNavItems = [
-  { href: '/', label: '首页' },
-  { href: '/student/practice', label: '练习' },
-  { href: '/student/ai-qa', label: 'AI 答疑' },
+const studentNavItems = [
+  { href: '/student', label: '学生首页' },
+  { href: '/student/practice', label: '练习闯关' },
+  { href: '/student/ai-qa', label: 'AI讲题' },
   { href: '/student/wrongbook', label: '错题本' },
   { href: '/student/reports', label: '学习报告' },
 ];
 
 function getUserDisplayName(displayName?: string | null) {
   if (!displayName) {
-    return '我的';
+    return '数学伙伴';
   }
 
-  return displayName.length > 4 ? `${displayName.slice(0, 4)}...` : displayName;
+  return displayName.length > 6 ? `${displayName.slice(0, 6)}...` : displayName;
+}
+
+function getRoleLabel(pathname: string) {
+  if (pathname.startsWith('/admin')) {
+    return '管理后台';
+  }
+
+  if (pathname.startsWith('/teacher')) {
+    return '教师专区';
+  }
+
+  return '学生学习中心';
+}
+
+function getRoleQuickAction(pathname: string) {
+  if (pathname.startsWith('/admin')) {
+    return { href: '/admin/questions', label: '去管理题库' };
+  }
+
+  if (pathname.startsWith('/teacher')) {
+    return { href: '/teacher/students', label: '查看学生列表' };
+  }
+
+  return { href: '/student/practice', label: '继续数学练习' };
+}
+
+function isNavActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getRoleMood(pathname: string): 'guide' | 'celebrate' | 'focus' {
+  if (pathname.startsWith('/student/practice') || pathname.startsWith('/student/reports')) {
+    return 'celebrate';
+  }
+
+  if (pathname.startsWith('/teacher') || pathname.startsWith('/admin')) {
+    return 'focus';
+  }
+
+  return 'guide';
 }
 
 export function PageShell({
@@ -69,12 +110,15 @@ export function PageShell({
     };
   }, [menuOpen]);
 
-  const mergedNavItems = navItems ?? defaultNavItems;
+  const mergedNavItems = navItems ?? studentNavItems;
   const accountLabel = useMemo(
     () => getUserDisplayName(currentUser?.displayName),
     [currentUser?.displayName],
   );
   const profilePath = getRoleProfilePath(currentUser?.role);
+  const roleLabel = getRoleLabel(pathname);
+  const mood = getRoleMood(pathname);
+  const quickAction = getRoleQuickAction(pathname);
 
   const handleLogout = () => {
     clearSession();
@@ -88,70 +132,84 @@ export function PageShell({
   };
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <header className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(245,253,249,0.95),rgba(243,248,255,0.92))] p-6 shadow-float backdrop-blur">
-        <div className="pointer-events-none absolute -left-6 top-8 h-24 w-24 rounded-full bg-brand-100/70 blur-2xl" />
-        <div className="pointer-events-none absolute right-10 top-6 h-20 w-20 rounded-full bg-sky-100/80 blur-2xl" />
-        <div className="pointer-events-none absolute bottom-0 right-24 h-16 w-16 rounded-full bg-violet-100/80 blur-2xl" />
+    <div className="relative mx-auto min-h-screen max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute left-2 top-24 h-28 w-28 rounded-full bg-[#FFEB3B]/25 blur-3xl" />
+      <div className="pointer-events-none absolute right-8 top-40 h-36 w-36 rounded-full bg-[#3F51B5]/16 blur-3xl" />
+
+      <header className="math-card math-panel math-symbol-strip relative mb-8 rounded-[2rem] px-5 py-5 sm:px-6">
+        <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-tr-[3rem] bg-[#4CAF50]/12" />
+        <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-bl-[3rem] bg-[#FF9800]/10" />
+
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-full bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700">
-                  <span className="animate-bob text-base">🤖</span>
-                  <span>小数老师在线</span>
-                </div>
-                <div className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-sky-700 shadow-sm">
-                  今日学习模式
-                </div>
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="hidden rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(238,243,255,0.88))] p-3 shadow-[0_14px_28px_rgba(63,81,181,0.12)] md:block">
+                <EinsteinMentor size="sm" mood={mood} badge="导师" />
               </div>
-              {showPageIntro ? (
-                <>
-                  <h1 className="font-display text-3xl font-bold text-ink">{title}</h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-                    {description}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h1 className="font-display text-3xl font-bold text-ink">
-                    小学数学智能辅导系统
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-                    像一位会鼓励人的学习伙伴，陪学生练习、答疑、复习和一点点进步。
-                  </p>
-                </>
-              )}
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="math-chip math-chip-primary">爱因数学星球</span>
+                  <span className="math-chip math-chip-success">{roleLabel}</span>
+                  <span className="math-chip math-chip-warm">练习 + AI讲题 + 错题 + 报告</span>
+                </div>
+                {showPageIntro ? (
+                  <>
+                    <h1 className="font-math-display text-3xl font-extrabold text-ink sm:text-4xl">
+                      {title}
+                    </h1>
+                    <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                      {description}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="font-math-display text-3xl font-extrabold text-ink sm:text-4xl">
+                      爱因数学星球
+                    </h1>
+                    <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                      面向小学 1-6 年级的数学智能学习平台，把练习、AI讲题、错题沉淀、学习报告和多角色管理连成一条完整学习闭环。
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-3">
+              <Link
+                href={quickAction.href}
+                className="math-button-secondary hidden rounded-[1rem] px-4 py-2 text-sm font-extrabold text-slate-700 sm:inline-flex"
+              >
+                {quickAction.label}
+              </Link>
+              <div className="hidden rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-[#607D8B] shadow-[0_12px_24px_rgba(96,125,139,0.12)] lg:block">
+                + - × ÷ = √ π
+              </div>
               {currentUser ? (
                 <div ref={menuRef} className="relative shrink-0">
                   <button
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
-                    className="flex items-center gap-2 rounded-full border border-brand-100 bg-white px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300"
+                    className="math-button-secondary flex items-center gap-3 px-3 py-2 text-sm font-bold text-brand-700"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-black text-brand-700">
                       {accountLabel.slice(0, 1)}
                     </span>
-                    <span className="hidden sm:inline">{accountLabel}</span>
-                    <span className="text-xs text-slate-400">{menuOpen ? '▲' : '▼'}</span>
+                    <span>{accountLabel}</span>
                   </button>
 
                   {menuOpen ? (
-                    <div className="absolute right-0 top-[calc(100%+0.6rem)] z-20 w-44 rounded-2xl border border-slate-100 bg-white p-2 shadow-card">
+                    <div className="absolute right-0 top-[calc(100%+0.6rem)] z-20 w-48 rounded-[1.2rem] border border-brand-100 bg-white p-2 shadow-card">
                       <button
                         type="button"
                         onClick={handleGoProfile}
-                        className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-brand-50 hover:text-brand-700"
+                        className="flex w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-brand-50 hover:text-brand-700"
                       >
                         进入个人中心
                       </button>
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="mt-1 flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-red-50 hover:text-red-600"
+                        className="mt-1 flex w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600"
                       >
                         退出登录
                       </button>
@@ -161,23 +219,53 @@ export function PageShell({
               ) : (
                 <Link
                   href="/login"
-                  className="shrink-0 whitespace-nowrap rounded-full border border-brand-100 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-500 hover:bg-white"
+                  className="math-button-primary inline-flex items-center rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white"
                 >
-                  登录
+                  进入平台
                 </Link>
               )}
             </div>
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2 rounded-[1.5rem] bg-white/75 p-2 shadow-sm">
+          <div className="math-role-panel flex flex-col gap-4 rounded-[1.6rem] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-[1.2rem] bg-white/90 p-2 shadow-sm">
+                <EinsteinMentor size="sm" mood={mood} badge={pathname.startsWith('/student') ? '陪学' : pathname.startsWith('/teacher') ? '助教' : '导航'} />
+              </div>
+              <div>
+                <p className="font-math-display text-xl font-extrabold text-ink">
+                  {pathname.startsWith('/student')
+                    ? '今天先完成任务，再回看成长'
+                    : pathname.startsWith('/teacher')
+                      ? '先看班级总览，再决定跟进对象'
+                      : '先看系统概览，再处理题库与用户'}
+                </p>
+                <p className="text-sm leading-6 text-slate-600">
+                  {pathname.startsWith('/student')
+                    ? '这里不是普通控制台，而是你的数学学习路径起点。'
+                    : pathname.startsWith('/teacher')
+                      ? '教师端更稳重，但仍然属于同一套小学数学平台。'
+                      : '管理端更偏效率工具，但品牌感和产品归属要持续可见。'}
+                </p>
+              </div>
+            </div>
+            <Link
+              href={quickAction.href}
+              className="math-button-primary inline-flex rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white"
+            >
+              {quickAction.label}
+            </Link>
+          </div>
+
+          <nav className="grid gap-2 rounded-[1.6rem] bg-white/70 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:grid-cols-3 lg:grid-cols-5">
             {mergedNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-full border px-3 py-2 text-sm font-medium shadow-sm transition lg:px-4 ${
-                  pathname === item.href
-                    ? 'border-brand-600 bg-brand-700 text-white'
-                    : 'border-brand-100 bg-brand-50 text-brand-700 hover:-translate-y-0.5 hover:border-brand-500 hover:bg-white'
+                className={`math-lift rounded-[1rem] border px-4 py-3 text-center text-sm font-extrabold ${
+                  isNavActive(pathname, item.href)
+                    ? 'border-brand-700 bg-brand-700 text-white shadow-[0_14px_28px_rgba(63,81,181,0.26)]'
+                    : 'border-brand-100 bg-white/80 text-slate-700'
                 }`}
               >
                 {item.label}
@@ -186,6 +274,7 @@ export function PageShell({
           </nav>
         </div>
       </header>
+
       <main>{children}</main>
     </div>
   );

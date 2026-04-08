@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { CompactAiResult } from '@/components/ai-qa/compact-ai-result';
 import { PageShell } from '@/components/base/page-shell';
 import { AdventureMapBoard } from '@/components/practice/adventure-map-board';
@@ -82,7 +83,7 @@ export default function StudentPracticePage() {
   const [aiResults, setAiResults] = useState<Record<string, Awaited<ReturnType<typeof aiService.askQuestion>>>>({});
   const [earnedStars, setEarnedStars] = useState(0);
   const [totalStars, setTotalStars] = useState(0);
-  const [mapOpen, setMapOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(true);
   const [selectedStageId, setSelectedStageId] = useState('warmup');
   const [mapTip, setMapTip] = useState('');
   const questionSectionRef = useRef<HTMLElement | null>(null);
@@ -119,8 +120,7 @@ export default function StudentPracticePage() {
       }
 
       try {
-        const resolvedUser =
-          currentUser ?? (await authService.getCurrentUser());
+        const resolvedUser = currentUser ?? (await authService.getCurrentUser());
 
         if (!currentUser) {
           setSession(accessToken, resolvedUser);
@@ -158,7 +158,7 @@ export default function StudentPracticePage() {
         setAnswers({});
         setResult(null);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : '题目加载失败');
+        setError(loadError instanceof Error ? loadError.message : '题目加载失败。');
       } finally {
         setLoading(false);
       }
@@ -204,7 +204,7 @@ export default function StudentPracticePage() {
         .filter((item) => item.answer.trim() !== '');
 
       if (submittedAnswers.length === 0) {
-        setError('请先做至少 1 道题，再提交答案。');
+        setError('请先完成至少 1 道题，再提交答案。');
         return;
       }
 
@@ -232,7 +232,7 @@ export default function StudentPracticePage() {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : '提交练习失败，请先完成注册并登录后再试。',
+          : '提交练习失败，请稍后重试。',
       );
     } finally {
       setSubmitting(false);
@@ -311,171 +311,253 @@ export default function StudentPracticePage() {
     }, 120);
   };
 
+  const grade = filters.grade ?? currentUser?.grade ?? currentUser?.student?.grade ?? 3;
+  const completionRate =
+    pendingQuestions.length + masteredQuestions.length === 0
+      ? 0
+      : Math.round(
+          (masteredQuestions.length /
+            (pendingQuestions.length + masteredQuestions.length)) *
+            100,
+        );
+  const activeQuestion = pendingQuestions[0] ?? null;
+  const answeredCount = pendingQuestions.filter(
+    (item) => (answers[item.id] ?? '').trim() !== '',
+  ).length;
+
   return (
     <PageShell
-      title="练习"
-      description="欢迎来到今天的闯关练习场。先完成还没掌握的题，再把星星一点点攒起来。"
+      title="智能练习"
+      description="这里是你的数学闯关中心。先完成今天还没掌握的题，再用 AI 帮助自己把难点一题题讲明白。"
     >
-      <section className="mb-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(240,253,244,0.96),rgba(239,246,255,0.92))] p-6 shadow-card">
-          <div className="pointer-events-none absolute -left-6 top-6 h-24 w-24 rounded-full bg-brand-100/70 blur-3xl" />
-          <button
-            type="button"
-            onClick={() => setMapOpen((current) => !current)}
-            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm transition hover:-translate-y-0.5"
-          >
-            🧭 {mapOpen ? '收起冒险地图' : '打开冒险地图'}
-          </button>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-700">
-            今天先挑战什么
-          </p>
-          <h2 className="mt-3 text-2xl font-bold text-ink">一步一步把题做会</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            这里会优先放今天还没完全掌握的题。先做会，再去看已掌握题目，你会更清楚自己进步了多少。
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-sm">
-              <p className="text-xs text-slate-500">当前年级</p>
-              <p className="mt-1 text-lg font-bold text-brand-700">
-                {filters.grade ?? currentUser?.grade ?? currentUser?.student?.grade ?? 3} 年级
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <article className="math-card rounded-[2rem] px-6 py-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="math-chip math-chip-primary">数学地图</span>
+                <span className="math-chip math-chip-success">当前年级 {grade}</span>
+                <span className="math-chip math-chip-warm">练习聚焦模式</span>
+              </div>
+              <h2 className="font-math-display text-3xl font-extrabold text-ink">
+                今天先把还没掌握的题做会
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                练习页不只是题目列表。这里会优先展示你还没完全掌握的题，并给你地图闯关、即时判题和 AI 辅助。
               </p>
             </div>
-            <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-sm">
-              <p className="text-xs text-slate-500">待挑战题目</p>
-              <p className="mt-1 text-lg font-bold text-violet-700">
-                {pendingQuestions.length} 道
-              </p>
-            </div>
-            <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-sm">
-              <p className="text-xs text-slate-500">已掌握题目</p>
-              <p className="mt-1 text-lg font-bold text-emerald-700">
-                {masteredQuestions.length} 道
-              </p>
+            <div className="rounded-[1.8rem] bg-[linear-gradient(180deg,#F8FBFF,#EEF4FF)] p-3">
+              <EinsteinMentor size="md" mood="celebrate" badge="闯关" />
             </div>
           </div>
-        </div>
 
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(250,245,255,0.96),rgba(239,246,255,0.92))] p-6 shadow-card">
-          <div className="pointer-events-none absolute -right-8 bottom-0 h-24 w-24 rounded-full bg-violet-100/60 blur-3xl" />
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-            闯关奖励
-          </p>
-          <h2 className="mt-3 text-2xl font-bold text-ink">答对就能拿星星</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-white/85 px-4 py-4 shadow-sm">
-              <p className="text-2xl">⭐</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-[1.4rem] bg-[#EEF1FF] px-4 py-5">
+              <p className="text-sm font-semibold text-slate-500">待挑战题目</p>
+              <p className="mt-2 font-math-display text-3xl font-extrabold text-brand-700">
+                {pendingQuestions.length}
+              </p>
+            </article>
+            <article className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-5">
+              <p className="text-sm font-semibold text-slate-500">已掌握题目</p>
+              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#2E7D32]">
+                {masteredQuestions.length}
+              </p>
+            </article>
+            <article className="rounded-[1.4rem] bg-[#FFF3E0] px-4 py-5">
+              <p className="text-sm font-semibold text-slate-500">掌握进度</p>
+              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#EF6C00]">
+                {completionRate}%
+              </p>
+            </article>
+            <article className="rounded-[1.4rem] bg-[#F3E8FF] px-4 py-5">
+              <p className="text-sm font-semibold text-slate-500">AI 辅助</p>
+              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#8E24AA]">
+                3种
+              </p>
+            </article>
+          </div>
+        </article>
+
+        <article className="math-card rounded-[2rem] px-6 py-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">闯关奖励</p>
+              <h2 className="font-math-display text-3xl font-extrabold text-ink">答对就能拿星星</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMapOpen((current) => !current)}
+              className="math-button-secondary rounded-[1rem] px-4 py-2 text-sm font-extrabold text-slate-700"
+            >
+              {mapOpen ? '收起地图' : '打开地图'}
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[1.4rem] bg-[#FFF8E1] px-4 py-4">
+              <p className="text-2xl">★</p>
               <p className="mt-2 text-sm font-semibold text-ink">每答对 1 题</p>
-              <p className="mt-1 text-sm text-violet-700">+1 星星</p>
+              <p className="mt-1 text-sm text-[#EF6C00]">+1 星星</p>
             </div>
-            <div className="rounded-2xl bg-white/85 px-4 py-4 shadow-sm">
-              <p className="text-2xl">🔥</p>
+            <div className="rounded-[1.4rem] bg-[#EEF1FF] px-4 py-4">
+              <p className="text-2xl">✦</p>
               <p className="mt-2 text-sm font-semibold text-ink">连对奖励</p>
-              <p className="mt-1 text-sm text-violet-700">连对越多，多加 1~3 星</p>
+              <p className="mt-1 text-sm text-brand-700">连续答对可额外加星</p>
             </div>
-            <div className="rounded-2xl bg-white/85 px-4 py-4 shadow-sm">
-              <p className="text-2xl">🎯</p>
-              <p className="mt-2 text-sm font-semibold text-ink">一轮全对</p>
-              <p className="mt-1 text-sm text-violet-700">额外 +2 星</p>
+            <div className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-4">
+              <p className="text-2xl">✓</p>
+              <p className="mt-2 text-sm font-semibold text-ink">全对加成</p>
+              <p className="mt-1 text-sm text-[#2E7D32]">一轮全对额外奖励</p>
             </div>
           </div>
-        </div>
+
+          {result ? (
+            <div className="mt-5 rounded-[1.5rem] border border-brand-100 bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(238,241,255,0.95),rgba(232,245,233,0.92))] px-5 py-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="math-chip math-chip-primary">本轮完成</span>
+                <span className="math-chip math-chip-success">答对 {result.correctCount}</span>
+                <span className="math-chip math-chip-warm">答错 {result.wrongCount}</span>
+                <span className="math-chip math-chip-violet">+{earnedStars} 星</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                当前正确率 {result.accuracyRate}% ，累计星星 {totalStars}。做对的题会进入“已掌握”，做错的题会自动沉淀到错题本。
+              </p>
+            </div>
+          ) : null}
+        </article>
       </section>
 
       {mapOpen ? (
-        <div className="mb-6 space-y-4">
+        <section className="mt-6 space-y-4">
           {mapTip ? (
-            <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700 shadow-sm">
+            <div className="rounded-[1.2rem] bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
               {mapTip}
             </div>
           ) : null}
           <AdventureMapBoard
-            grade={filters.grade ?? currentUser?.grade ?? currentUser?.student?.grade ?? 3}
+            grade={grade}
             pendingCount={pendingQuestions.length}
             masteredCount={masteredQuestions.length}
             selectedStageId={selectedStageId}
             onSelectStage={handleSelectStage}
           />
-        </div>
+        </section>
       ) : null}
 
-      {result ? (
-        <section className="sticky top-4 z-10 mb-6 rounded-3xl border border-brand-100 bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(240,253,244,0.95),rgba(243,244,255,0.92))] p-4 shadow-card backdrop-blur">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-              这一轮练习完成啦
-            </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
-              总题数 {result.totalCount}
-            </span>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-              答对 {result.correctCount}
-            </span>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
-              答错 {result.wrongCount}
-            </span>
-            <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-              正确率 {result.accuracyRate}%
-            </span>
-            <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-semibold text-violet-700">
-              +{earnedStars} ⭐
-            </span>
-            <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-violet-700">
-              现在共有 {totalStars} ⭐
-            </span>
+      {activeQuestion ? (
+        <section className="mt-6 math-card rounded-[2rem] px-6 py-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="math-chip math-chip-primary">当前闯关焦点</span>
+                <span className="math-chip math-chip-success">
+                  第 1 / {pendingQuestions.length} 题
+                </span>
+              </div>
+              <h2 className="font-math-display text-3xl font-extrabold text-ink">
+                先把这道题做明白
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-slate-600">
+                当前优先题是“{activeQuestion.title}”。先自己想一想，再用 AI 的审题、提示一步或换种讲法来帮忙。
+              </p>
+            </div>
+
+            <div className="min-w-[220px] rounded-[1.5rem] bg-[linear-gradient(180deg,#EEF4FF,#FFFFFF)] px-5 py-4">
+              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-brand-700">
+                <span>本轮进度</span>
+                <span>{answeredCount}/{pendingQuestions.length}</span>
+              </div>
+              <div className="h-3 rounded-full bg-brand-100">
+                <div
+                  className="h-3 rounded-full bg-brand-700 transition-all"
+                  style={{
+                    width: `${
+                      pendingQuestions.length === 0
+                        ? 0
+                        : Math.max(
+                            6,
+                            Math.round((answeredCount / pendingQuestions.length) * 100),
+                          )
+                    }%`,
+                  }}
+                />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                已填写 {answeredCount} 题，先完成当前这一轮再提交。
+              </p>
+            </div>
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {result.wrongCount === 0
-              ? '太棒了，这一轮全对，还拿到了额外的闯关奖励！'
-              : '答对的题越多、连对越稳，得到的星星就会越多。'}
-          </p>
         </section>
       ) : null}
 
       <section
         ref={questionSectionRef}
-        className="rounded-[2rem] border border-white/80 bg-white/90 p-8 shadow-card"
+        className="mt-6 rounded-[2rem] bg-white/92 px-6 py-7 shadow-card"
       >
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={filters.grade ?? currentUser?.grade ?? currentUser?.student?.grade ?? 3}
-            onChange={(event) =>
-              setFilters((prev) => ({
-                ...prev,
-                grade: Number(event.target.value),
-              }))
-            }
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none"
-          >
-            {[1, 2, 3, 4, 5, 6].map((grade) => (
-              <option key={grade} value={grade}>
-                {grade} 年级
-              </option>
-            ))}
-          </select>
-          <select
-            value={filters.difficulty ?? ''}
-            onChange={(event) =>
-              setFilters((prev) => ({
-                ...prev,
-                difficulty: event.target.value
-                  ? Number(event.target.value)
-                  : undefined,
-              }))
-            }
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none"
-          >
-            <option value="">全部难度</option>
-            {[1, 2, 3, 4, 5].map((difficulty) => (
-              <option key={difficulty} value={difficulty}>
-                难度 {difficulty}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">做题区</p>
+            <h2 className="font-math-display text-3xl font-extrabold text-ink">当前练习任务</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              题目区会优先聚焦正在练的内容。每道题都能直接获得 AI 审题、提示一步和换种讲法。
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={grade}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  grade: Number(event.target.value),
+                }))
+              }
+              className="math-input max-w-[8rem] py-2"
+            >
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <option key={item} value={item}>
+                  {item} 年级
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.difficulty ?? ''}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  difficulty: event.target.value ? Number(event.target.value) : undefined,
+                }))
+              }
+              className="math-input max-w-[9rem] py-2"
+            >
+              <option value="">全部难度</option>
+              {[1, 2, 3, 4, 5].map((difficulty) => (
+                <option key={difficulty} value={difficulty}>
+                  难度 {difficulty}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mt-5 rounded-[1.2rem] bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
             {error}
+          </div>
+        ) : null}
+
+        {pendingQuestions.length > 0 ? (
+          <div className="mt-5 rounded-[1.4rem] bg-[#EEF1FF] px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-bold text-brand-700">本轮题目进度</p>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-brand-700">
+                1 / {pendingQuestions.length}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              只统计你已经填写答案的题，空白题不会拉低本轮正确率。
+            </p>
           </div>
         ) : null}
 
@@ -483,212 +565,205 @@ export default function StudentPracticePage() {
           {loading ? <p className="text-sm text-slate-500">题目加载中...</p> : null}
 
           {!loading && pendingQuestions.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-10 text-center">
-              <p className="text-lg font-semibold text-ink">
-                这一页暂时没有新题啦
-              </p>
-              <p className="mt-2 text-sm leading-7 text-slate-500">
+            <div className="rounded-[1.6rem] border border-dashed border-brand-200 bg-[#F8FBFF] px-6 py-10 text-center">
+              <p className="font-math-display text-2xl font-extrabold text-ink">这一页暂时没有新题啦</p>
+              <p className="mt-2 text-sm leading-7 text-slate-600">
                 {questions.length === 0
-                  ? `你现在选择的是 ${filters.grade} 年级。请先到管理端导入这个年级的题目。`
-                  : '这个年级的题你最近都答对了，可以先去错题本复习，或者切换其他年级继续练习。'}
+                  ? `你现在选择的是 ${grade} 年级。请先导入这个年级的题目。`
+                  : '这个年级的题你最近都做对了，可以先去错题本复习，或者切换其他难度继续闯关。'}
               </p>
             </div>
           ) : null}
 
-          {pendingQuestions.length > 0 ? (
-            <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700 shadow-sm">
-              这里优先放的是今天还没完全掌握的题。已经做对的题，会放到下面的“已掌握题目”里。
-            </div>
-          ) : null}
+          {pendingQuestions.map((item, index) => {
+            const detail = resultDetailMap.get(item.id);
+            const isCurrentFocus = index === 0;
 
-          {pendingQuestions.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-violet-100 bg-[linear-gradient(135deg,rgba(245,243,255,0.94),rgba(255,255,255,0.92))] px-4 py-4 text-sm text-violet-700 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-semibold">本轮闯关进度</span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-violet-700">
-                  第 1 - {pendingQuestions.length} 题
-                </span>
-              </div>
-              <p className="mt-2 leading-6">
-                每答对 1 题可获得 1 颗星星；连对会额外加星，全部答对还能再拿 2 颗奖励星星。
-              </p>
-            </div>
-          ) : null}
-
-          {pendingQuestions.map((item, index) => (
-            <article
-              key={item.id}
-              className={`rounded-3xl border p-5 shadow-sm ${
-                item.id === focusQuestionId
-                  ? 'border-brand-300 bg-[linear-gradient(135deg,rgba(240,253,244,0.94),rgba(255,255,255,0.92))]'
-                  : 'border-slate-100 bg-[linear-gradient(135deg,rgba(248,250,252,0.92),rgba(255,255,255,0.92))]'
-              }`}
-            >
-              {(() => {
-                const detail = resultDetailMap.get(item.id);
-
-                return (
-                  <>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-semibold text-ink">
-                  {index + 1}. {item.title}
-                </h3>
-                <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500">
-                  {item.grade} 年级
-                </span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500">
-                  难度 {item.difficulty}
-                </span>
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                  先做这题
-                </span>
-                {detail ? (
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      detail.isCorrect
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {detail.isCorrect ? '这题做对了' : '这题还要再练'}
+            return (
+              <article
+                key={item.id}
+                className={`rounded-[1.9rem] border p-5 shadow-sm ${
+                  item.id === focusQuestionId || isCurrentFocus
+                    ? 'border-brand-300 bg-[linear-gradient(135deg,rgba(238,241,255,0.98),rgba(255,255,255,0.96))] shadow-[0_20px_36px_rgba(63,81,181,0.14)]'
+                    : 'border-slate-100 bg-[linear-gradient(135deg,rgba(248,250,252,0.94),rgba(255,255,255,0.94))]'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
+                    第 {index + 1} 题
                   </span>
-                ) : null}
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-700">{item.stem}</p>
-
-              {item.options?.length ? (
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {item.options.map((option) => (
-                    <button
-                      key={option.label}
-                      type="button"
-                      onClick={() =>
-                        setAnswers((prev) => ({ ...prev, [item.id]: option.label }))
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                        answers[item.id] === option.label
-                          ? 'border-brand-500 bg-brand-50 text-brand-700'
-                          : 'border-slate-200 bg-white text-slate-700'
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+                    {item.grade} 年级
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+                    难度 {item.difficulty}
+                  </span>
+                  {isCurrentFocus ? (
+                    <span className="rounded-full bg-[#FFF8E1] px-3 py-1 text-xs font-black text-[#B26A00]">
+                      当前主做题
+                    </span>
+                  ) : null}
+                  {detail ? (
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${
+                        detail.isCorrect
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-red-100 text-red-700'
                       }`}
                     >
-                      {option.label}. {option.value}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <textarea
-                  value={answers[item.id] ?? ''}
-                  onChange={(event) =>
-                    setAnswers((prev) => ({
-                      ...prev,
-                      [item.id]: event.target.value,
-                    }))
-                  }
-                  rows={3}
-                  className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-brand-500"
-                  placeholder="请输入你的答案"
-                />
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void requestAiSupport(item, 'REVIEW_QUESTION', 'AI 审题')}
-                  className="rounded-full bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 shadow-sm"
-                >
-                  AI 审题
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void requestAiSupport(item, 'GIVE_HINT', '提示一步')}
-                  className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 shadow-sm"
-                >
-                  提示一步
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void requestAiSupport(item, 'REPHRASE_EXPLANATION', '换种讲法')
-                  }
-                  className="rounded-full bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 shadow-sm"
-                >
-                  换种讲法
-                </button>
-              </div>
-
-              {detail ? (
-                <div
-                  className={`mt-4 rounded-2xl border px-4 py-4 ${
-                    detail.isCorrect
-                      ? 'border-emerald-100 bg-emerald-50/80'
-                      : 'border-red-100 bg-red-50/80'
-                  }`}
-                >
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-white/90 px-4 py-3">
-                      <p className="text-xs text-slate-400">你的答案</p>
-                      <p className="mt-1 text-sm font-medium text-slate-700">
-                        {detail.studentAnswer || '未填写'}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-white/90 px-4 py-3">
-                      <p className="text-xs text-slate-400">正确答案</p>
-                      <p className="mt-1 text-sm font-medium text-slate-700">
-                        {detail.correctAnswer || '暂无'}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-white/90 px-4 py-3">
-                      <p className="text-xs text-slate-400">判题结果</p>
-                      <p
-                        className={`mt-1 text-sm font-semibold ${
-                          detail.isCorrect ? 'text-emerald-700' : 'text-red-700'
-                        }`}
-                      >
-                        {detail.isCorrect ? '你答对了' : '这次还没答对'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {detail.feedback ? (
-                    <div className="mt-3 rounded-2xl bg-white/90 px-4 py-3 text-sm leading-7 text-slate-600">
-                      {detail.feedback}
-                    </div>
+                      {detail.isCorrect ? '这题做对了' : '这题还要再练'}
+                    </span>
                   ) : null}
                 </div>
-              ) : null}
 
-              <CompactAiResult
-                title={aiPanelTitle[item.id] ?? 'AI 辅助'}
-                result={aiResults[item.id] ?? null}
-                loading={aiLoadingQuestionId === item.id}
-                error={aiErrors[item.id]}
-              />
-                  </>
-                );
-              })()}
-            </article>
-          ))}
+                <h3 className="mt-4 font-math-display text-2xl font-extrabold text-ink">
+                  {item.title}
+                </h3>
+                <div className="mt-4 rounded-[1.4rem] bg-white/86 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">题目阅读区</p>
+                  <p className="mt-3 text-base leading-8 text-slate-700">{item.stem}</p>
+                </div>
+
+                {item.options?.length ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {item.options.map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() =>
+                          setAnswers((prev) => ({ ...prev, [item.id]: option.label }))
+                        }
+                        className={`rounded-[1.2rem] border px-4 py-3 text-left text-sm font-semibold transition ${
+                          answers[item.id] === option.label
+                            ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-[0_12px_20px_rgba(63,81,181,0.12)]'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-brand-200'
+                        }`}
+                      >
+                        {option.label}. {option.value}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <textarea
+                    value={answers[item.id] ?? ''}
+                    onChange={(event) =>
+                      setAnswers((prev) => ({
+                        ...prev,
+                        [item.id]: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    className="math-input mt-5"
+                    placeholder="请输入你的答案"
+                  />
+                )}
+
+                <div className="mt-5 rounded-[1.3rem] bg-[linear-gradient(180deg,#EEF4FF,#FFFFFF)] px-4 py-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-black uppercase tracking-[0.16em] text-brand-700">
+                      AI 辅助工具
+                    </p>
+                    <span className="text-xs font-semibold text-slate-500">
+                      卡住时再点，会更有帮助
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void requestAiSupport(item, 'REVIEW_QUESTION', 'AI 审题帮助')}
+                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-brand-700"
+                  >
+                    AI 审题
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void requestAiSupport(item, 'GIVE_HINT', '提示一步')}
+                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-[#2E7D32]"
+                  >
+                    提示一步
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void requestAiSupport(item, 'REPHRASE_EXPLANATION', '换种讲法')
+                    }
+                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-[#1565C0]"
+                  >
+                    换种讲法
+                  </button>
+                  </div>
+                </div>
+
+                {detail ? (
+                  <div
+                    className={`mt-5 rounded-[1.4rem] border px-4 py-4 ${
+                      detail.isCorrect
+                        ? 'border-emerald-100 bg-emerald-50/80'
+                        : 'border-red-100 bg-red-50/80'
+                    }`}
+                  >
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
+                        <p className="text-xs font-semibold text-slate-400">你的答案</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {detail.studentAnswer || '未填写'}
+                        </p>
+                      </div>
+                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
+                        <p className="text-xs font-semibold text-slate-400">正确答案</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {detail.correctAnswer || '暂无'}
+                        </p>
+                      </div>
+                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
+                        <p className="text-xs font-semibold text-slate-400">判题结果</p>
+                        <p
+                          className={`mt-1 text-sm font-extrabold ${
+                            detail.isCorrect ? 'text-emerald-700' : 'text-red-700'
+                          }`}
+                        >
+                          {detail.isCorrect ? '你答对了' : '这题需要再巩固'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {detail.feedback ? (
+                      <div className="mt-3 rounded-[1rem] bg-white/92 px-4 py-3 text-sm leading-7 text-slate-600">
+                        <p className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                          讲解反馈
+                        </p>
+                        {detail.feedback}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <CompactAiResult
+                  title={aiPanelTitle[item.id] ?? 'AI 辅助'}
+                  result={aiResults[item.id] ?? null}
+                  loading={aiLoadingQuestionId === item.id}
+                  error={aiErrors[item.id]}
+                />
+              </article>
+            );
+          })}
         </div>
 
         {masteredQuestions.length > 0 ? (
           <section className="mt-8">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-ink">已掌握题目</h2>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                {masteredQuestions.length} 道
-              </span>
+              <h2 className="font-math-display text-2xl font-extrabold text-ink">已掌握题目</h2>
+              <span className="math-chip math-chip-success">{masteredQuestions.length} 题</span>
             </div>
             <div className="space-y-3">
               {masteredQuestions.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-3xl border border-slate-100 bg-[linear-gradient(135deg,rgba(240,253,244,0.76),rgba(255,255,255,0.78))] p-5 opacity-90 shadow-sm"
+                  className="rounded-[1.5rem] border border-slate-100 bg-[linear-gradient(135deg,rgba(232,245,233,0.86),rgba(255,255,255,0.88))] p-5 shadow-sm"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold text-ink">{item.title}</h3>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                      已掌握
-                    </span>
+                    <h3 className="font-semibold text-ink">{item.title}</h3>
+                    <span className="math-chip math-chip-success">已掌握</span>
                   </div>
                   <p className="mt-2 text-sm leading-7 text-slate-600">{item.stem}</p>
                 </article>
@@ -697,21 +772,20 @@ export default function StudentPracticePage() {
           </section>
         ) : null}
 
-        <div className="mt-8 flex flex-wrap gap-4">
+        <div className="mt-8 flex flex-wrap items-center gap-4">
           <button
             type="button"
             onClick={() => void handleSubmit()}
             disabled={submitting || pendingQuestions.length === 0}
-            className="rounded-2xl bg-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="math-button-primary rounded-[1.1rem] px-6 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {submitting ? '提交中...' : '提交答案'}
+            {submitting ? '正在提交...' : '提交本轮答案'}
           </button>
           <p className="text-sm leading-6 text-slate-500">
-            只会统计你已经填写答案的题，没写的题不会拉低正确率。
+            提交后会得到即时正误反馈、正确答案和讲解提示，并自动把错题沉淀到错题本。
           </p>
         </div>
       </section>
-
     </PageShell>
   );
 }

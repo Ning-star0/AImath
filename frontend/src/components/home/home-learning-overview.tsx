@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { authService } from '@/services/auth.service';
 import { reportService } from '@/services/report.service';
 import { wrongbookService } from '@/services/wrongbook.service';
@@ -11,6 +13,93 @@ import type {
   WrongbookStatsResult,
 } from '@/types/api';
 
+const loopCards = [
+  {
+    icon: '1',
+    title: '智能练习',
+    desc: '按年级、难度和题型进入数学地图，先做今天该掌握的内容。',
+    tone: 'bg-[#EEF1FF]',
+  },
+  {
+    icon: '2',
+    title: 'AI讲题',
+    desc: '不会的题立即提问，获取分步骤讲解、提示和相似题。',
+    tone: 'bg-[#F3E8FF]',
+  },
+  {
+    icon: '3',
+    title: '错题本',
+    desc: '练习提交后自动沉淀错题，支持重练、归档和错因分析。',
+    tone: 'bg-[#FFF3E0]',
+  },
+  {
+    icon: '4',
+    title: '学习报告',
+    desc: '通过正确率、知识点掌握和趋势曲线看见真实成长。',
+    tone: 'bg-[#E8F5E9]',
+  },
+];
+
+const studentFeatureCards = [
+  {
+    title: '智能练习',
+    desc: '支持年级、难度与题型练习，形成做题主链路。',
+    href: '/student/practice',
+    icon: '✎',
+    tone: 'bg-[#EEF1FF]',
+  },
+  {
+    title: 'AI答疑',
+    desc: '随时把不会的数学题交给爱因导师讲清楚。',
+    href: '/student/ai-qa',
+    icon: 'AI',
+    tone: 'bg-[#F3E8FF]',
+  },
+  {
+    title: '错题诊所',
+    desc: '错题自动沉淀，支持复练、错因分析和相似题生成。',
+    href: '/student/wrongbook',
+    icon: '!',
+    tone: 'bg-[#FFF3E0]',
+  },
+  {
+    title: '学习报告',
+    desc: '展示正确率、知识点掌握和近期学习趋势。',
+    href: '/student/reports',
+    icon: '%',
+    tone: 'bg-[#E8F5E9]',
+  },
+  {
+    title: '数学地图',
+    desc: '用任务和关卡方式进入练习，更适合小学生持续推进。',
+    href: '/student/practice',
+    icon: '◎',
+    tone: 'bg-[#E3F2FD]',
+  },
+  {
+    title: '个人成长',
+    desc: '成长值、星星奖励和成就系统增强学习陪伴感。',
+    href: '/student/profile',
+    icon: '★',
+    tone: 'bg-[#FFF8E1]',
+  },
+];
+
+const sideRoleCards = [
+  {
+    title: '教师端概览',
+    desc: '班级概览、学生列表、基础统计，帮助老师了解整体学习情况。',
+    href: '/teacher',
+    tone: 'bg-[#E8F5E9]',
+  },
+  {
+    title: '管理端概览',
+    desc: '用户管理、题库管理、系统统计，保证平台可以持续维护和迭代。',
+    href: '/admin',
+    tone: 'bg-[#FFF3E0]',
+  },
+];
+
 export function HomeLearningOverview() {
   const hydrateSession = useUserStore((state) => state.hydrateSession);
   const setSession = useUserStore((state) => state.setSession);
@@ -19,9 +108,7 @@ export function HomeLearningOverview() {
 
   const [report, setReport] = useState<ReportOverviewResult | null>(null);
   const [wrongbook, setWrongbook] = useState<WrongbookListResult | null>(null);
-  const [wrongbookStats, setWrongbookStats] = useState<WrongbookStatsResult | null>(
-    null,
-  );
+  const [wrongbookStats, setWrongbookStats] = useState<WrongbookStatsResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -58,9 +145,7 @@ export function HomeLearningOverview() {
         setWrongbook(wrongbookData);
         setWrongbookStats(wrongbookStatsData);
       } catch (loadError) {
-        setError(
-          loadError instanceof Error ? loadError.message : '学习数据加载失败，请稍后再试。',
-        );
+        setError(loadError instanceof Error ? loadError.message : '学习数据加载失败，请稍后重试。');
       } finally {
         setLoading(false);
       }
@@ -69,154 +154,143 @@ export function HomeLearningOverview() {
     void loadData();
   }, [accessToken, currentUser, setSession]);
 
-  const recentWrongItems = wrongbook?.list.slice(0, 3) ?? [];
-  const recentPracticeItems = report?.learningTrend.slice(-3).reverse() ?? [];
+  const recentWrongItems = wrongbook?.list.slice(0, 2) ?? [];
 
   return (
-    <section className="mx-auto mt-2 max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#6d90a8]">
-            Learning Snapshot
-          </p>
-          <h2 className="font-home text-3xl font-black text-[#28405d]">
-            学习数据观察站
-          </h2>
-        </div>
-        <div className="rounded-full border border-white/70 bg-white/70 px-4 py-2 text-sm font-semibold text-[#577389] shadow-[0_10px_18px_rgba(122,178,215,0.16)] backdrop-blur">
-          科学探索式成长看板
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="space-y-6">
-        <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(245,252,255,0.92),rgba(255,255,255,0.95))] p-8 shadow-[0_24px_48px_rgba(104,166,210,0.16)] backdrop-blur">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#6a8da7]">
-                学习进度
-              </p>
-              <h3 className="font-home mt-3 text-2xl font-black text-[#24384e]">
-                看看最近的学习状态
-              </h3>
-            </div>
-            <div className="rounded-full border border-[#d0ecff] bg-[#edf9ff] px-4 py-2 text-sm font-semibold text-[#36749b]">
-              {currentUser?.grade ?? currentUser?.student?.grade ?? 3} 年级
-            </div>
-          </div>
-
-          {loading ? (
-            <p className="mt-6 text-sm text-slate-500">正在准备你的学习数据...</p>
-          ) : null}
-
-          {!accessToken && !loading ? (
-            <p className="mt-6 text-sm leading-7 text-slate-600">
-              登录后可以看到今天的学习进度、最近错题和练习记录。
+    <section className="mx-auto max-w-7xl px-4 pb-14 sm:px-6 lg:px-8">
+      <section id="loop" className="math-card rounded-[2.1rem] px-6 py-7 sm:px-8">
+        <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="math-section-label">学习闭环</span>
+            <h2 className="font-math-display text-3xl font-extrabold text-ink">智能练习 → AI讲题 → 错题本 → 学习报告</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+              首页必须能把产品讲明白。这套平台的核心不是某一个功能点，而是把做题、讲题、复习和反馈连成连续学习过程。
             </p>
-          ) : null}
-
-          {error ? (
-            <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          ) : null}
-
-          {accessToken && report ? (
-            <div className="mt-6 grid gap-4 md:grid-cols-4">
-              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#eefbff,#ddf5ff)]">
-                <p className="text-sm text-slate-500">总做题数</p>
-                <p className="mt-2 font-home text-3xl font-black text-[#2777a6]">
-                  {report.totalQuestions}
-                </p>
-              </div>
-              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#efffec,#e0f9db)]">
-                <p className="text-sm text-slate-500">正确率</p>
-                <p className="mt-2 font-home text-3xl font-black text-[#2f8e3d]">
-                  {report.accuracyRate}%
-                </p>
-              </div>
-              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#fff8de,#fff0bd)]">
-                <p className="text-sm text-slate-500">待复习错题</p>
-                <p className="mt-2 font-home text-3xl font-black text-[#b17b14]">
-                  {wrongbookStats?.unresolvedCount ?? 0}
-                </p>
-              </div>
-              <div className="home-lab-stat-card bg-[linear-gradient(180deg,#f6f0ff,#ece2ff)]">
-                <p className="text-sm text-slate-500">AI 答疑次数</p>
-                <p className="mt-2 font-home text-3xl font-black text-[#7351c9]">
-                  {report.aiQaCount ?? 0}
-                </p>
-              </div>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,251,239,0.94),rgba(255,255,255,0.96))] p-8 shadow-[0_24px_48px_rgba(190,157,75,0.14)] backdrop-blur">
-          <h3 className="font-home text-2xl font-black text-[#413623]">最近错题</h3>
-          <div className="mt-5 space-y-4">
-            {recentWrongItems.length === 0 ? (
-              <p className="text-sm leading-7 text-slate-600">
-                目前还没有新的错题记录，继续保持。
-              </p>
-            ) : (
-              recentWrongItems.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-[1.4rem] border border-[#f1deaf] bg-[linear-gradient(180deg,#fffef7,#fff7db)] p-5 shadow-[0_12px_20px_rgba(211,183,110,0.12)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_28px_rgba(211,183,110,0.18)]"
-                >
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h4 className="font-home text-lg font-black text-[#3b3229]">
-                      {item.questionTitle}
-                    </h4>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                      已错 {item.wrongCount} 次
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    {item.questionStem}
-                  </p>
-                </article>
-              ))
-            )}
           </div>
-        </section>
-      </div>
+          <div className="rounded-[1.8rem] bg-[linear-gradient(180deg,#F8FBFF,#EAF2FF)] p-4">
+            <EinsteinMentor size="md" mood="focus" badge="闭环" />
+          </div>
+        </div>
 
-      <section className="rounded-[2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(243,248,255,0.94),rgba(255,255,255,0.96))] p-8 shadow-[0_24px_48px_rgba(109,145,195,0.14)] backdrop-blur">
-        <h3 className="font-home text-2xl font-black text-[#2c3b58]">最近练习记录</h3>
-        <div className="mt-5 space-y-4">
-          {recentPracticeItems.length === 0 ? (
-            <p className="text-sm leading-7 text-slate-600">
-              还没有新的练习记录，去题库练习页完成第一组题吧。
-            </p>
-          ) : (
-            recentPracticeItems.map((item) => (
-              <article
-                key={item.date}
-                className="rounded-[1.45rem] border border-[#d9e8ff] bg-[linear-gradient(90deg,#eef6ff,#ffffff)] p-5 shadow-[0_12px_20px_rgba(133,164,214,0.12)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_28px_rgba(133,164,214,0.18)]"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-home text-lg font-black text-[#33425d]">
-                      {item.date}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {(item.practiceCount ?? 0)} 次练习 · {(item.totalQuestions ?? 0)} 题
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400">正确率</p>
-                    <p className="font-home text-2xl font-black text-[#3366b4]">
-                      {item.accuracyRate}%
-                    </p>
-                  </div>
-                </div>
-              </article>
-            ))
-          )}
+        <div className="grid gap-4 lg:grid-cols-4">
+          {loopCards.map((item, index) => (
+            <article key={item.title} className={`relative rounded-[1.6rem] border border-white/80 ${item.tone} px-4 py-5 shadow-[0_14px_28px_rgba(63,81,181,0.08)]`}>
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-base font-black text-brand-700">
+                {item.icon}
+              </div>
+              <p className="font-math-display text-2xl font-extrabold text-ink">{item.title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{item.desc}</p>
+              {index < loopCards.length - 1 ? (
+                <div className="pointer-events-none absolute -right-3 top-1/2 hidden h-0.5 w-6 bg-brand-300 lg:block" />
+              ) : null}
+            </article>
+          ))}
         </div>
       </section>
-      </div>
+
+      <section className="mt-8 grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
+        <article className="math-card rounded-[2rem] px-6 py-7 sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="math-section-label">学生端核心功能</span>
+              <h2 className="font-math-display text-3xl font-extrabold text-ink">真实功能入口，不是宣传卡片</h2>
+            </div>
+            <span className="math-chip math-chip-success">学生侧最完整</span>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {studentFeatureCards.map((item) => (
+              <Link
+                key={item.title}
+                href={item.href}
+                className={`math-lift rounded-[1.6rem] border border-white/80 ${item.tone} px-5 py-5 shadow-[0_16px_30px_rgba(63,81,181,0.08)]`}
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-base font-black text-brand-700">
+                  {item.icon}
+                </div>
+                <p className="mt-4 font-math-display text-2xl font-extrabold text-ink">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{item.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </article>
+
+        <article className="math-card rounded-[2rem] px-6 py-7 sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="math-section-label">平台完整度</span>
+              <h2 className="font-math-display text-3xl font-extrabold text-ink">教师端 / 管理端也明确存在</h2>
+            </div>
+            <span className="math-chip math-chip-warm">多角色平台</span>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {sideRoleCards.map((item) => (
+              <Link
+                key={item.title}
+                href={item.href}
+                className={`math-lift block rounded-[1.6rem] border border-white/80 ${item.tone} px-5 py-5 shadow-[0_14px_28px_rgba(63,81,181,0.08)]`}
+              >
+                <p className="font-math-display text-2xl font-extrabold text-ink">{item.title}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">{item.desc}</p>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-[1.6rem] bg-[#EEF4FF] px-5 py-5">
+            <p className="font-math-display text-2xl font-extrabold text-ink">当前学习快照</p>
+            {loading ? <p className="mt-3 text-sm text-slate-500">正在读取数据...</p> : null}
+            {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
+            {!accessToken && !loading ? (
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                登录后这里会展示学生真实练习数据，让首页不仅有介绍，也有平台运行中的“活数据感”。
+              </p>
+            ) : null}
+            {accessToken && report ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[1.2rem] bg-white/90 px-4 py-4">
+                  <p className="text-sm text-slate-500">最近正确率</p>
+                  <p className="mt-1 font-math-display text-3xl font-extrabold text-brand-700">
+                    {report.accuracyRate}%
+                  </p>
+                </div>
+                <div className="rounded-[1.2rem] bg-white/90 px-4 py-4">
+                  <p className="text-sm text-slate-500">待复习错题</p>
+                  <p className="mt-1 font-math-display text-3xl font-extrabold text-[#EF6C00]">
+                    {wrongbookStats?.unresolvedCount ?? 0}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {recentWrongItems.length > 0 ? (
+              <div className="mt-4 space-y-3">
+                {recentWrongItems.map((item) => (
+                  <article key={item.id} className="rounded-[1.2rem] bg-white/90 px-4 py-4">
+                    <p className="font-bold text-ink">{item.questionTitle}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{item.questionStem}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                href="/student"
+                className="math-button-primary inline-flex rounded-[1rem] px-4 py-3 text-sm font-extrabold text-white"
+              >
+                进入学生学习中心
+              </Link>
+              <Link
+                href="/teacher"
+                className="math-button-secondary inline-flex rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+              >
+                查看教师端
+              </Link>
+            </div>
+          </div>
+        </article>
+      </section>
     </section>
   );
 }

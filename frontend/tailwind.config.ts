@@ -10,21 +10,22 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          50: '#effcf6',
-          100: '#d7f7e8',
-          500: '#1ca36f',
-          700: '#116546',
-          900: '#093825',
+          50: '#eef1ff',
+          100: '#dbe2ff',
+          500: '#3f51b5',
+          700: '#2e419e',
+          900: '#1f2f7a',
         },
-        accent: '#f59e0b',
-        ink: '#1f2937',
+        accent: '#ff9800',
+        success: '#4caf50',
+        ink: '#20304f',
       },
       fontFamily: {
-        display: ['"Noto Sans SC"', 'sans-serif'],
+        display: ['"Baloo 2"', '"Nunito"', '"Noto Sans SC"', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 18px 45px rgba(17, 101, 70, 0.08)',
-        float: '0 22px 55px rgba(99, 102, 241, 0.12)',
+        card: '0 20px 44px rgba(63, 81, 181, 0.12)',
+        float: '0 28px 64px rgba(63, 81, 181, 0.16)',
       },
       keyframes: {
         'task-pop': {
