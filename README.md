@@ -591,3 +591,6 @@ Command + Shift + R
 - AI 生成相似题直接入练习链路
 - 更完整的成长系统（徽章、连击、升级弹窗）
 
+cd C:\Users\n2356\Downloads\AImath\AImath
+docker compose -f .\docker\docker-compose.yml build --no-cache frontend
+docker compose -f .\docker\docker-compose.yml up -d --force-recreate frontend
