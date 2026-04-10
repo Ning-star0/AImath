@@ -106,6 +106,27 @@ export interface AdminAiConfigResult {
   };
 }
 
+export interface AdminClassesResult {
+  total: number;
+  list: Array<{
+    key: string;
+    schoolName?: string | null;
+    grade: number;
+    className: string;
+    studentCount: number;
+    students: Array<{
+      id: string;
+      displayName: string;
+      studentCode: string;
+    }>;
+    assignedTeachers: Array<{
+      id: string;
+      displayName: string;
+      teacherCode?: string | null;
+    }>;
+  }>;
+}
+
 export interface ImportKnowledgePointPayload {
   code: string;
   name: string;
@@ -230,6 +251,27 @@ export const adminService = {
     const response = await apiClient.get<ApiResponse<AdminAiConfigResult>>(
       '/admin/ai-config',
     );
+    return response.data.data;
+  },
+
+  async getClasses() {
+    const response = await apiClient.get<ApiResponse<AdminClassesResult>>('/admin/classes');
+    return response.data.data;
+  },
+
+  async assignStudentToClass(
+    studentId: string,
+    payload: { grade: number; className: string; schoolName?: string | null },
+  ) {
+    const response = await apiClient.patch<
+      ApiResponse<{
+        id: string;
+        displayName: string;
+        grade: number;
+        className: string | null;
+        schoolName: string | null;
+      }>
+    >(`/admin/students/${studentId}/class-assignment`, payload);
     return response.data.data;
   },
 

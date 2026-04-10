@@ -21,6 +21,24 @@ import { useUserStore } from '@/store/use-user-store';
 import type { ReportOverviewResult, WrongQuestionItem } from '@/types/api';
 
 type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+type SubjectKey = 'MATH' | 'CHINESE' | 'ENGLISH';
+
+const subjectOptions: Array<{ value: SubjectKey; label: string; status: 'ACTIVE' | 'COMING_SOON' }> = [
+  { value: 'MATH', label: '数学', status: 'ACTIVE' },
+  { value: 'CHINESE', label: '语文', status: 'COMING_SOON' },
+  { value: 'ENGLISH', label: '英语', status: 'COMING_SOON' },
+];
+
+function buildChallengeProfile(report: ReportOverviewResult | null) {
+  const answeredCount = report?.questionDrilldowns.all.length ?? 0;
+  const level = Math.max(1, Math.floor(answeredCount / 10) + 1);
+  const clearedStages = Math.floor(answeredCount / 5);
+  return {
+    level,
+    clearedStages,
+    answeredCount,
+  };
+}
 
 function getTaskStatus(report: ReportOverviewResult | null): TaskStatus {
   const answeredCount = report?.questionDrilldowns.all.length ?? 0;
@@ -48,6 +66,7 @@ export default function StudentHomePage() {
   const [report, setReport] = useState<ReportOverviewResult | null>(null);
   const [wrongQuestions, setWrongQuestions] = useState<WrongQuestionItem[]>([]);
   const [recommendedCount, setRecommendedCount] = useState(0);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectKey>('MATH');
 
   useEffect(() => {
     hydrateSession();
@@ -74,7 +93,7 @@ export default function StudentHomePage() {
         const [reportData, wrongbookData, questionData] = await Promise.all([
           reportService.getOverview(7),
           wrongbookService.getList({ grade, unresolvedOnly: true }),
-          questionService.getQuestionList({ grade }),
+          questionService.getQuestionList({ grade, subject: selectedSubject }),
         ]);
 
         setReport(reportData);
@@ -88,11 +107,12 @@ export default function StudentHomePage() {
     };
 
     void loadStudentHomeData();
-  }, [accessToken, currentUser, setSession]);
+  }, [accessToken, currentUser, selectedSubject, setSession]);
 
   const displayName = currentUser?.displayName ?? '同学';
   const grade = currentUser?.grade ?? currentUser?.student?.grade ?? 3;
   const taskStatus = useMemo(() => getTaskStatus(report), [report]);
+  const challengeProfile = useMemo(() => buildChallengeProfile(report), [report]);
 
   const heroCopy = useMemo(() => {
     if (taskStatus === 'COMPLETED') {
@@ -180,9 +200,30 @@ export default function StudentHomePage() {
       <section className="portal-board px-5 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-6 xl:grid-cols-[1.22fr_0.78fr]">
           <article className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-6 py-6 shadow-[0_18px_36px_rgba(255,193,7,0.10)]">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {subjectOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => option.status === 'ACTIVE' && setSelectedSubject(option.value)}
+                  className={`rounded-full px-4 py-2 text-sm font-extrabold ${
+                    selectedSubject === option.value
+                      ? 'bg-brand-600 text-white'
+                      : option.status === 'ACTIVE'
+                        ? 'bg-white text-slate-700 ring-1 ring-slate-200'
+                        : 'bg-slate-100 text-slate-400 ring-1 ring-slate-200'
+                  }`}
+                >
+                  {option.label}
+                  {option.status === 'COMING_SOON' ? ' · 即将开放' : ''}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <span className={heroCopy.statusTone}>{heroCopy.statusLabel}</span>
               <span className="math-chip math-chip-success">{grade} 年级</span>
+              <span className="math-chip math-chip-primary">Lv.{challengeProfile.level}</span>
             </div>
 
             <h2 className="mt-4 font-math-display text-4xl font-extrabold text-ink">
@@ -196,12 +237,28 @@ export default function StudentHomePage() {
               <p className="mt-2 text-sm leading-7 text-slate-600">
                 做完以后，再决定是否去 AI 讲题，或者回到错题本复习。
               </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[1rem] bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-bold text-slate-500">当前学科</p>
+                  <p className="mt-1 text-sm font-black text-ink">
+                    {subjectOptions.find((item) => item.value === selectedSubject)?.label}
+                  </p>
+                </div>
+                <div className="rounded-[1rem] bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-bold text-slate-500">已通关站点</p>
+                  <p className="mt-1 text-sm font-black text-ink">{challengeProfile.clearedStages} 站</p>
+                </div>
+                <div className="rounded-[1rem] bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-bold text-slate-500">累计答题</p>
+                  <p className="mt-1 text-sm font-black text-ink">{challengeProfile.answeredCount} 题</p>
+                </div>
+              </div>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => router.push('/student/practice')}
+                onClick={() => router.push(`/student/practice?subject=${selectedSubject}`)}
                 className="math-button-primary rounded-[1rem] px-6 py-3 text-sm font-extrabold text-white"
               >
                 {heroCopy.primaryButton}
@@ -217,6 +274,12 @@ export default function StudentHomePage() {
                 className="math-button-secondary rounded-[1rem] px-6 py-3 text-sm font-extrabold text-slate-700"
               >
                 复习错题
+              </Link>
+              <Link
+                href="/family"
+                className="math-button-secondary rounded-[1rem] px-6 py-3 text-sm font-extrabold text-slate-700"
+              >
+                家长视图
               </Link>
             </div>
           </article>

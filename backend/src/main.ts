@@ -37,6 +37,11 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
   });
+  const maybeUseBodyParser = (app as unknown as { useBodyParser?: Function }).useBodyParser;
+  if (typeof maybeUseBodyParser === 'function') {
+    maybeUseBodyParser.call(app, 'json', { limit: '25mb' });
+    maybeUseBodyParser.call(app, 'urlencoded', { limit: '25mb', extended: true });
+  }
 
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(

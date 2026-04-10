@@ -6,29 +6,76 @@ export type PlatformErrorKind =
   | 'maintenance'
   | 'page_load_error';
 
+const MSG = {
+  roleMismatch:
+    '\u5f53\u524d\u8d26\u53f7\u4e0e\u6240\u9009\u8eab\u4efd\u5165\u53e3\u4e0d\u5339\u914d\uff0c\u8bf7\u5207\u6362\u5230\u6b63\u786e\u5165\u53e3\u540e\u518d\u767b\u5f55\u3002',
+  forbidden:
+    '\u5f53\u524d\u8d26\u53f7\u6682\u65f6\u6ca1\u6709\u8bbf\u95ee\u8be5\u529f\u80fd\u7684\u6743\u9650\u3002',
+  network:
+    '\u7f51\u7edc\u8fde\u63a5\u5f02\u5e38\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u540e\u518d\u8bd5\u3002',
+  maintenance:
+    '\u5e73\u53f0\u6b63\u5728\u7ef4\u62a4\u4e2d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bbf\u95ee\u3002',
+  accountNotFound:
+    '\u672a\u627e\u5230\u5bf9\u5e94\u8d26\u53f7\uff0c\u8bf7\u68c0\u67e5\u540e\u91cd\u65b0\u8f93\u5165\u3002',
+  wrongPassword:
+    '\u5bc6\u7801\u8f93\u5165\u4e0d\u6b63\u786e\uff0c\u8bf7\u91cd\u65b0\u5c1d\u8bd5\u3002',
+  notActivated:
+    '\u5f53\u524d\u8d26\u53f7\u5c1a\u672a\u6fc0\u6d3b\uff0c\u8bf7\u7b49\u5f85\u5ba1\u6838\u6216\u8054\u7cfb\u7ba1\u7406\u5458\u3002',
+  sessionExpired:
+    '\u767b\u5f55\u72b6\u6001\u5df2\u5931\u6548\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u7ee7\u7eed\u64cd\u4f5c\u3002',
+};
+
+function includesAny(text: string, patterns: string[]) {
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
 export function normalizeUserMessage(message: string) {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes('unauthorized')) {
-    return '登录状态已失效，请重新登录后继续操作。';
+  if (
+    includesAny(normalized, [
+      'unauthorized',
+      '\u5f53\u524d\u8d26\u53f7\u4e0e\u6240\u9009\u8eab\u4efd\u5165\u53e3\u4e0d\u5339\u914d',
+      '褰撳墠璐﹀彿涓庢墍閫夎韩浠藉叆鍙ｄ笉鍖归厤',
+    ])
+  ) {
+    return MSG.roleMismatch;
   }
-  if (normalized.includes('forbidden') || normalized.includes('permission')) {
-    return '当前账号暂时没有访问该功能的权限。';
+
+  if (includesAny(normalized, ['forbidden', 'permission'])) {
+    return MSG.forbidden;
   }
-  if (normalized.includes('network') || normalized.includes('timeout')) {
-    return '网络连接异常，请检查网络后重试。';
+
+  if (includesAny(normalized, ['network', 'timeout'])) {
+    return MSG.network;
   }
+
   if (normalized.includes('maint')) {
-    return '平台正在维护中，请稍后再访问。';
+    return MSG.maintenance;
   }
-  if (normalized.includes('account does not exist')) {
-    return '未找到对应账号，请检查后重新输入。';
+
+  if (
+    includesAny(normalized, [
+      'account does not exist',
+      '\u672a\u627e\u5230\u5bf9\u5e94\u8d26\u53f7',
+      '鏈壘鍒板搴旇处鍙',
+    ])
+  ) {
+    return MSG.accountNotFound;
   }
-  if (normalized.includes('incorrect password')) {
-    return '密码输入不正确，请重新尝试。';
+
+  if (
+    includesAny(normalized, [
+      'incorrect password',
+      '\u5bc6\u7801\u8f93\u5165\u4e0d\u6b63\u786e',
+      '瀵嗙爜杈撳叆涓嶆纭',
+    ])
+  ) {
+    return MSG.wrongPassword;
   }
-  if (normalized.includes('not activated')) {
-    return '当前账号尚未激活，请等待审核或联系管理员。';
+
+  if (includesAny(normalized, ['not activated', '\u5c1a\u672a\u6fc0\u6d3b'])) {
+    return MSG.notActivated;
   }
 
   return message;
@@ -37,20 +84,26 @@ export function normalizeUserMessage(message: string) {
 export function getPlatformErrorKind(message: string): PlatformErrorKind {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes('unauthorized') || normalized.includes('登录状态已失效')) {
+  if (
+    includesAny(normalized, [
+      'unauthorized',
+      '\u8eab\u4efd\u5165\u53e3\u4e0d\u5339\u914d',
+      '\u767b\u5f55\u72b6\u6001\u5df2\u5931\u6548',
+      MSG.sessionExpired.toLowerCase(),
+    ])
+  ) {
     return 'session_expired';
   }
-  if (normalized.includes('forbidden') || normalized.includes('权限')) {
+
+  if (includesAny(normalized, ['forbidden', '\u6743\u9650'])) {
     return 'permission_denied';
   }
-  if (
-    normalized.includes('network') ||
-    normalized.includes('timeout') ||
-    normalized.includes('网络')
-  ) {
+
+  if (includesAny(normalized, ['network', 'timeout', '\u7f51\u7edc'])) {
     return 'network_error';
   }
-  if (normalized.includes('maint') || normalized.includes('维护')) {
+
+  if (includesAny(normalized, ['maint', '\u7ef4\u62a4'])) {
     return 'maintenance';
   }
 

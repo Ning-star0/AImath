@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   STUDENT
+  PARENT
   TEACHER
   ADMIN
 }
@@ -46,10 +47,13 @@ model User {
   meta            Json?
   student         Student?
   teacher         Teacher?
+  parentBindings  ParentBinding[]  @relation("ParentUserBindings")
   exerciseRecords ExerciseRecord[]
   wrongQuestions  WrongQuestion[]
   aiQaRecords     AiQaRecord[]
   learningReports LearningReport[]
+  pilotFeedbacks  PilotFeedback[]
+  systemLogs      SystemLog[]      @relation("ActorLogs")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -73,10 +77,68 @@ model Student {
   wrongQuestions  WrongQuestion[]
   aiQaRecords     AiQaRecord[]
   learningReports LearningReport[]
+  parentBindings  ParentBinding[]
+  memorySnapshot  StudentMemorySnapshot?
+  memoryHistory   StudentMemoryHistory[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@index([grade])
+}
+
+model StudentMemorySnapshot {
+  id                     String   @id @default(cuid())
+  studentId              String   @unique
+  preferredSubject       String   @default("MATH")
+  challengeLevel         Int      @default(1)
+  clearedStages          Int      @default(0)
+  totalAnswered          Int      @default(0)
+  totalCorrect           Int      @default(0)
+  accuracyRate           Float    @default(0)
+  unresolvedWrongCount   Int      @default(0)
+  aiQaCount              Int      @default(0)
+  lastPracticedAt        DateTime?
+  lastAiInteractionAt    DateTime?
+  weakKnowledgePoints    String[]
+  recentMistakeTypes     String[]
+  summary                String?
+  strengths              String[]
+  weaknesses             String[]
+  recommendations        String[]
+  confidence             String   @default("LOW")
+  rawProfile             Json?
+  student                Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([preferredSubject])
+  @@index([accuracyRate])
+  @@index([updatedAt])
+}
+
+model StudentMemoryHistory {
+  id                   String   @id @default(cuid())
+  studentId            String
+  eventType            String
+  subject              String   @default("MATH")
+  challengeLevel       Int      @default(1)
+  clearedStages        Int      @default(0)
+  totalAnswered        Int      @default(0)
+  totalCorrect         Int      @default(0)
+  accuracyRate         Float    @default(0)
+  unresolvedWrongCount Int      @default(0)
+  aiQaCount            Int      @default(0)
+  weakKnowledgePoints  String[]
+  recentMistakeTypes   String[]
+  summary              String?
+  recommendations      String[]
+  rawProfile           Json?
+  student              Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+
+  @@index([studentId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([subject])
 }
 
 model Teacher {
@@ -92,10 +154,70 @@ model Teacher {
   updatedAt   DateTime @updatedAt
 }
 
+model ParentBinding {
+  id            String   @id @default(cuid())
+  parentUserId  String
+  studentId     String
+  relationLabel String
+  bindingStatus String   @default("APPROVED")
+  notes         String?
+  parentUser    User     @relation("ParentUserBindings", fields: [parentUserId], references: [id], onDelete: Cascade)
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([parentUserId, studentId])
+  @@index([studentId])
+  @@index([bindingStatus])
+}
+
+model PilotFeedback {
+  id           String   @id @default(cuid())
+  userId       String?
+  role         Role?
+  source       String   @default("TRIAL")
+  feedbackType String   @default("GENERAL")
+  contactName  String?
+  contactPhone String?
+  schoolName   String?
+  studentGrade Int?
+  rating       Int?
+  content      String
+  tags         String[]
+  attachmentMeta Json?
+  extra        Json?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+  @@index([feedbackType])
+  @@index([createdAt])
+}
+
+model SystemLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  module       String
+  action       String
+  level        String   @default("INFO")
+  targetType   String?
+  targetId     String?
+  message      String
+  payload      Json?
+  createdAt    DateTime @default(now())
+  actor        User?    @relation("ActorLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([module, createdAt])
+  @@index([actorUserId])
+  @@index([level])
+}
+
 model Question {
   id                    String                   @id @default(cuid())
   title                 String
   stem                  String
+  subject               String                   @default("MATH")
   questionType          QuestionType
   grade                 Int
   difficulty            Int                      @default(1)
@@ -113,6 +235,7 @@ model Question {
   updatedAt             DateTime                 @updatedAt
 
   @@index([grade])
+  @@index([subject])
   @@index([difficulty])
   @@index([questionType])
 }
@@ -160,6 +283,7 @@ model ExerciseRecord {
   studentId           String?
   status              ExerciseStatus         @default(PENDING)
   grade               Int?
+  subject             String?                @default("MATH")
   totalCount          Int                    @default(0)
   correctCount        Int                    @default(0)
   accuracyRate        Float                  @default(0)
@@ -173,6 +297,7 @@ model ExerciseRecord {
   updatedAt           DateTime               @updatedAt
 
   @@index([userId, createdAt])
+  @@index([subject])
   @@index([studentId])
   @@index([status])
 }
@@ -202,6 +327,7 @@ model WrongQuestion {
   userId              String
   studentId           String?
   questionId          String
+  subject             String?         @default("MATH")
   knowledgePointId    String?
   exerciseRecordId    String?
   exerciseDetailId    String?
@@ -219,6 +345,7 @@ model WrongQuestion {
   updatedAt           DateTime        @updatedAt
 
   @@index([userId, resolved])
+  @@index([subject])
   @@index([studentId])
   @@index([questionId])
   @@index([knowledgePointId])
@@ -234,6 +361,7 @@ model AiQaRecord {
   parsedResult      Json?
   sourceContext     Json?
   grade             Int?
+  subject           String?   @default("MATH")
   modelName         String?
   recommendedDrafts Json?
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -242,6 +370,7 @@ model AiQaRecord {
   updatedAt         DateTime @updatedAt
 
   @@index([userId])
+  @@index([subject])
   @@index([studentId])
   @@index([grade])
   @@index([createdAt])
@@ -253,6 +382,7 @@ model LearningReport {
   studentId             String?
   knowledgePointId      String?
   reportDate            DateTime
+  subject               String          @default("MATH")
   periodType            String          @default("WEEKLY")
   totalQuestions        Int             @default(0)
   correctCount          Int             @default(0)
@@ -269,6 +399,7 @@ model LearningReport {
   updatedAt             DateTime        @updatedAt
 
   @@index([userId, reportDate])
+  @@index([subject, reportDate])
   @@index([studentId, reportDate])
   @@index([knowledgePointId])
 }

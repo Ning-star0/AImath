@@ -11,6 +11,7 @@ export class QuestionsService {
 
   async findAll(query: QueryQuestionsDto) {
     const where: Prisma.QuestionWhereInput = {
+      subject: query.subject?.trim() || 'MATH',
       ...(query.grade ? { grade: query.grade } : {}),
       ...(query.difficulty ? { difficulty: query.difficulty } : {}),
       ...(query.questionType ? { questionType: query.questionType } : {}),
@@ -33,22 +34,26 @@ export class QuestionsService {
         : {}),
     };
 
-    const questions = await this.prisma.question.findMany({
-      where,
-      include: {
-        questionKnowledgeMaps: {
-          include: {
-            knowledgePoint: true,
+    const take = query.take ?? 20;
+    const [questions, total] = await Promise.all([
+      this.prisma.question.findMany({
+        where,
+        include: {
+          questionKnowledgeMaps: {
+            include: {
+              knowledgePoint: true,
+            },
           },
         },
-      },
-      orderBy: [{ grade: 'asc' }, { difficulty: 'asc' }, { createdAt: 'desc' }],
-      take: query.take ?? 20,
-    });
+        orderBy: [{ grade: 'asc' }, { difficulty: 'asc' }, { createdAt: 'desc' }],
+        take,
+      }),
+      this.prisma.question.count({ where }),
+    ]);
 
     return {
       list: questions.map((question) => this.mapQuestion(question)),
-      total: questions.length,
+      total,
     };
   }
 
@@ -114,8 +119,10 @@ export class QuestionsService {
           );
         }
 
+        const subject = item.subject?.trim() || 'MATH';
         const deduplicatedQuestion = await tx.question.findFirst({
           where: {
+            subject,
             grade: item.grade,
             questionType: item.questionType,
             stem: item.stem,
@@ -127,8 +134,7 @@ export class QuestionsService {
           ? (item.options as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull;
 
-        const shouldTreatAsDeduplicated =
-          !item.id && !!deduplicatedQuestion?.id;
+        const shouldTreatAsDeduplicated = !item.id && !!deduplicatedQuestion?.id;
 
         const question = questionId
           ? await tx.question.upsert({
@@ -136,6 +142,7 @@ export class QuestionsService {
               update: {
                 title: item.title,
                 stem: item.stem,
+                subject,
                 questionType: item.questionType,
                 grade: item.grade,
                 difficulty: item.difficulty,
@@ -153,6 +160,7 @@ export class QuestionsService {
                 id: questionId,
                 title: item.title,
                 stem: item.stem,
+                subject,
                 questionType: item.questionType,
                 grade: item.grade,
                 difficulty: item.difficulty,
@@ -171,6 +179,7 @@ export class QuestionsService {
               data: {
                 title: item.title,
                 stem: item.stem,
+                subject,
                 questionType: item.questionType,
                 grade: item.grade,
                 difficulty: item.difficulty,
@@ -280,9 +289,7 @@ export class QuestionsService {
         });
 
         const affectedExerciseRecordIds = Array.from(
-          new Set(
-            relatedExerciseDetails.map((detail) => detail.exerciseRecordId),
-          ),
+          new Set(relatedExerciseDetails.map((detail) => detail.exerciseRecordId)),
         );
 
         cleanupSummary.removedWrongQuestions = await tx.wrongQuestion.count({
@@ -394,6 +401,7 @@ export class QuestionsService {
       id: question.id,
       title: question.title,
       stem: question.stem,
+      subject: question.subject,
       questionType: question.questionType,
       grade: question.grade,
       difficulty: question.difficulty,
@@ -409,5 +417,4 @@ export class QuestionsService {
       })),
     };
   }
-
 }

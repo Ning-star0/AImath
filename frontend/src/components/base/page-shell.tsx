@@ -17,10 +17,12 @@ interface PageShellProps {
 const studentNavItems = [
   { href: '/student', label: '学习首页' },
   { href: '/student/practice', label: '练习闯关' },
-  { href: '/student/ai-qa', label: 'AI讲题' },
+  { href: '/student/ai-qa', label: 'AI 讲题' },
   { href: '/student/wrongbook', label: '错题本' },
   { href: '/student/reports', label: '学习报告' },
 ];
+
+const familyNavItems = [{ href: '/family', label: '孩子总览' }];
 
 function getUserDisplayName(displayName?: string | null) {
   if (!displayName) {
@@ -32,30 +34,46 @@ function getUserDisplayName(displayName?: string | null) {
 
 function getRoleLabel(pathname: string) {
   if (pathname.startsWith('/admin')) {
-    return '系统管理中心';
+    return '管理端';
   }
 
   if (pathname.startsWith('/teacher')) {
-    return '教师工作台';
+    return '教师端';
   }
 
-  return '学生学习中心';
+  if (pathname.startsWith('/family')) {
+    return '家长端';
+  }
+
+  return '学生端';
+}
+
+function getDefaultNavItems(pathname: string) {
+  if (pathname.startsWith('/family')) {
+    return familyNavItems;
+  }
+
+  return studentNavItems;
 }
 
 function getRoleQuickAction(pathname: string) {
-  if (pathname.startsWith('/admin')) {
-    return { href: '/admin/questions', label: '题库管理' };
-  }
-
   if (pathname.startsWith('/teacher')) {
-    return { href: '/teacher/students', label: '学生列表' };
+    return { href: '/teacher/students', label: '查看学生列表' };
   }
 
-  return { href: '/student/practice', label: '继续练习' };
+  if (pathname.startsWith('/admin')) {
+    return { href: '/admin/users', label: '进入用户管理' };
+  }
+
+  if (pathname.startsWith('/family')) {
+    return { href: '/family', label: '查看孩子数据' };
+  }
+
+  return { href: '/student/practice', label: '开始今日练习' };
 }
 
 function isNavActive(pathname: string, href: string) {
-  if (href === '/student' || href === '/teacher' || href === '/admin') {
+  if (href === '/student' || href === '/teacher' || href === '/admin' || href === '/family') {
     return pathname === href;
   }
 
@@ -83,11 +101,7 @@ export function PageShell({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current) {
-        return;
-      }
-
-      if (!menuRef.current.contains(event.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -96,13 +110,14 @@ export function PageShell({
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const mergedNavItems = navItems ?? studentNavItems;
-  const accountLabel = useMemo(() => getUserDisplayName(currentUser?.displayName), [currentUser?.displayName]);
+  const mergedNavItems = navItems ?? getDefaultNavItems(pathname);
+  const accountLabel = useMemo(
+    () => getUserDisplayName(currentUser?.displayName),
+    [currentUser?.displayName],
+  );
   const profilePath = getRoleProfilePath(currentUser?.role);
   const roleLabel = getRoleLabel(pathname);
   const quickAction = getRoleQuickAction(pathname);
@@ -113,44 +128,43 @@ export function PageShell({
     router.push('/login');
   };
 
-  const handleGoProfile = () => {
-    setMenuOpen(false);
-    router.push(profilePath);
-  };
+  const supportLinks =
+    pathname.startsWith('/student') || pathname.startsWith('/family')
+      ? [
+          { href: '/teacher', label: '教师端' },
+          { href: '/admin', label: '管理端' },
+        ]
+      : [
+          { href: '/student', label: '学生端' },
+          { href: '/family', label: '家长端' },
+        ];
 
   return (
-    <div className="storybook-scene relative mx-auto min-h-screen max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute left-0 top-10 h-24 w-44 rounded-full bg-white/80 blur-sm" />
-      <div className="pointer-events-none absolute right-10 top-16 h-24 w-44 rounded-full bg-white/80 blur-sm" />
-      <div className="pointer-events-none absolute left-2 top-24 h-28 w-28 rounded-full bg-[#FFEB3B]/25 blur-3xl" />
-      <div className="pointer-events-none absolute right-8 top-40 h-36 w-36 rounded-full bg-[#3F51B5]/16 blur-3xl" />
-
-      <header className="portal-board math-symbol-strip relative mb-5 px-4 py-4 sm:px-5">
-        <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-20 rounded-tr-[2.4rem] bg-[#4CAF50]/10" />
-        <div className="pointer-events-none absolute right-0 top-0 h-20 w-20 rounded-bl-[2.4rem] bg-[#FF9800]/8" />
-
+    <div className="storybook-scene relative mx-auto min-h-screen max-w-7xl px-3 py-3 sm:px-5 lg:px-6">
+      <header className="portal-board relative mb-4 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="math-chip math-chip-primary">爱因数学星球</span>
                 <span className="math-chip math-chip-success">{roleLabel}</span>
               </div>
+              <h1 className="font-math-display text-2xl font-extrabold text-ink sm:text-3xl">
+                {showPageIntro ? title : '爱因数学星球'}
+              </h1>
               {showPageIntro ? (
-                <h1 className="font-math-display text-2xl font-extrabold text-ink sm:text-3xl">{title}</h1>
-              ) : (
-                <h1 className="font-math-display text-2xl font-extrabold text-ink sm:text-3xl">爱因数学星球</h1>
-              )}
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{description}</p>
+              ) : null}
             </div>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center gap-2">
               <Link
                 href={quickAction.href}
                 className="math-button-secondary hidden rounded-[0.9rem] px-4 py-2 text-sm font-extrabold text-slate-700 sm:inline-flex"
               >
                 {quickAction.label}
               </Link>
-              <div className="cloud-badge hidden px-3 py-2 text-sm font-bold text-[#607D8B] lg:block">+ - × ÷ = π</div>
+
               {currentUser ? (
                 <div ref={menuRef} className="relative shrink-0">
                   <button
@@ -168,7 +182,10 @@ export function PageShell({
                     <div className="absolute right-0 top-[calc(100%+0.6rem)] z-20 w-48 rounded-[1.2rem] border border-brand-100 bg-white p-2 shadow-card">
                       <button
                         type="button"
-                        onClick={handleGoProfile}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push(profilePath);
+                        }}
                         className="flex w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-brand-50 hover:text-brand-700"
                       >
                         进入个人中心
@@ -194,21 +211,32 @@ export function PageShell({
             </div>
           </div>
 
-          <nav className="grid gap-2 rounded-[1.2rem] bg-white/72 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:grid-cols-3 lg:grid-cols-5">
-            {mergedNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`math-lift rounded-[0.95rem] border px-4 py-2.5 text-center text-sm font-extrabold ${
-                  isNavActive(pathname, item.href)
-                    ? 'border-[#1A8E38] bg-[#1A8E38] text-white shadow-[0_14px_28px_rgba(26,142,56,0.22)]'
-                    : 'border-[#F7D672] bg-white/86 text-slate-700'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <nav className="grid gap-2 rounded-[1.2rem] bg-white p-2 shadow-sm sm:grid-cols-3 lg:flex lg:flex-wrap">
+              {mergedNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-[0.95rem] border px-4 py-2.5 text-center text-sm font-extrabold ${
+                    isNavActive(pathname, item.href)
+                      ? 'border-[#1A8E38] bg-[#1A8E38] text-white shadow-[0_12px_24px_rgba(26,142,56,0.2)]'
+                      : 'border-[#F7D672] bg-white text-slate-700'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
+              <span>其他入口</span>
+              {supportLinks.map((item) => (
+                <Link key={item.href} href={item.href} className="underline-offset-4 hover:text-brand-700 hover:underline">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 

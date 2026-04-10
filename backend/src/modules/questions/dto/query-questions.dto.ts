@@ -42,6 +42,11 @@ export class QueryQuestionsDto {
   @IsEnum(QuestionType)
   questionType?: QuestionType;
 
+  @ApiPropertyOptional({ example: 'MATH', description: '学科筛选，默认 MATH' })
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
   @ApiPropertyOptional({ example: 20, description: '每页数量' })
   @IsOptional()
   @Transform(({ value }) => Number(value))

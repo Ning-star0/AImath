@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SubmitExerciseDto } from './dto/submit-exercise.dto';
+import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
 
 interface AuthUser {
   id: string;
@@ -17,7 +18,10 @@ interface AuthUser {
 
 @Injectable()
 export class ExercisesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentMemoryService: StudentMemoryService,
+  ) {}
 
   async submit(user: AuthUser, payload: SubmitExerciseDto) {
     const questionIds = payload.answers.map((item) => item.questionId);
@@ -43,6 +47,8 @@ export class ExercisesService {
     if (mergedQuestions.some((item) => !item)) {
       throw new NotFoundException('部分题目不存在，无法提交答案');
     }
+
+    const subject = payload.subject?.trim() || mergedQuestions[0]?.subject || 'MATH';
 
     const judgedItems = payload.answers.map((item) => {
       const question = mergedQuestions.find(
@@ -89,6 +95,7 @@ export class ExercisesService {
           userId: user.id,
           studentId: user.student?.id,
           grade: user.student?.grade,
+          subject,
           status: ExerciseStatus.COMPLETED,
           totalCount,
           correctCount,
@@ -142,6 +149,7 @@ export class ExercisesService {
                 increment: 1,
               },
               lastWrongAnswer: item.studentAnswer,
+              subject,
               knowledgePointId:
                 existingWrongQuestion.knowledgePointId ??
                 primaryKnowledgePoint?.id,
@@ -154,6 +162,7 @@ export class ExercisesService {
               userId: user.id,
               studentId: user.student?.id,
               questionId: item.question.id,
+              subject,
               knowledgePointId: primaryKnowledgePoint?.id,
               exerciseRecordId: exerciseRecord.id,
               lastWrongAnswer: item.studentAnswer,
@@ -179,6 +188,14 @@ export class ExercisesService {
 
     if (!createdRecord) {
       throw new NotFoundException('练习记录创建失败');
+    }
+
+    if (user.student?.id) {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId: user.student.id,
+        subject,
+        eventType: 'EXERCISE_SUBMIT',
+      });
     }
 
     return {
@@ -240,6 +257,7 @@ export class ExercisesService {
         questionId: detail.questionId,
         title: detail.question.title,
         stem: detail.question.stem,
+        subject: detail.question.subject,
         questionType: detail.question.questionType,
         studentAnswer: detail.studentAnswer,
         correctAnswer: detail.correctAnswer,
@@ -275,8 +293,7 @@ export class ExercisesService {
     if (question.questionType === QuestionType.MULTIPLE_CHOICE) {
       const studentSet = normalizedStudentAnswer.split(',').filter(Boolean).sort();
       const correctSet = normalizedCorrectAnswer.split(',').filter(Boolean).sort();
-      const isCorrect =
-        JSON.stringify(studentSet) === JSON.stringify(correctSet);
+      const isCorrect = JSON.stringify(studentSet) === JSON.stringify(correctSet);
 
       return {
         isCorrect,
@@ -300,80 +317,5 @@ export class ExercisesService {
 
   private normalizeAnswer(answer: string) {
     return answer.replace(/\s+/g, '').trim().toUpperCase();
-  }
-
-  private buildFallbackQuestions(): Array<
-    Question & {
-      questionKnowledgeMaps: Array<{
-        knowledgePoint: {
-          id: string;
-          code: string;
-          name: string;
-          grade: number;
-        };
-      }>;
-    }
-  > {
-    return [
-      {
-        id: 'demo-question-1',
-        title: '三年级加法应用题',
-        stem: '小明有 12 支铅笔，又买了 8 支，现在一共有多少支？',
-        questionType: QuestionType.SHORT_ANSWER,
-        grade: 3,
-        difficulty: 1,
-        answer: '20',
-        options: null,
-        analysis: '12 + 8 = 20，所以一共有 20 支。',
-        tags: ['加法', '应用题'],
-        metadata: null,
-        source: 'fallback',
-        knowledgeGraphHint: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        questionKnowledgeMaps: [
-          {
-            knowledgePoint: {
-              id: 'demo-kp-1',
-              code: 'GRADE3-ADD-001',
-              name: '万以内加法',
-              grade: 3,
-            },
-          },
-        ],
-      },
-      {
-        id: 'demo-question-2',
-        title: '三年级选择题：哪个答案正确？',
-        stem: '计算 36 + 14，正确答案是哪一个？',
-        questionType: QuestionType.SINGLE_CHOICE,
-        grade: 3,
-        difficulty: 1,
-        answer: 'B',
-        options: [
-          { label: 'A', value: '40' },
-          { label: 'B', value: '50' },
-          { label: 'C', value: '52' },
-          { label: 'D', value: '60' },
-        ],
-        analysis: '36 + 14 = 50，所以选择 B。',
-        tags: ['加法', '选择题'],
-        metadata: null,
-        source: 'fallback',
-        knowledgeGraphHint: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        questionKnowledgeMaps: [
-          {
-            knowledgePoint: {
-              id: 'demo-kp-1',
-              code: 'GRADE3-ADD-001',
-              name: '万以内加法',
-              grade: 3,
-            },
-          },
-        ],
-      },
-    ];
   }
 }

@@ -62,6 +62,21 @@ export class AdminController {
     return this.adminService.getQuestions(query);
   }
 
+  @Get('classes')
+  @ApiOperation({ summary: '获取班级管理列表' })
+  getClasses() {
+    return this.adminService.getClasses();
+  }
+
+  @Patch('students/:id/class-assignment')
+  @ApiOperation({ summary: '调整学生班级归属' })
+  assignStudentToClass(
+    @Param('id') id: string,
+    @Body() payload: { grade: number; className: string; schoolName?: string | null },
+  ) {
+    return this.adminService.assignStudentToClass(id, payload);
+  }
+
   @Get('ai-config')
   @ApiOperation({ summary: '获取 AI 配置信息' })
   getAiConfig() {

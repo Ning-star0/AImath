@@ -5,7 +5,6 @@ import {
   IsArray,
   IsEnum,
   IsInt,
-  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -29,6 +28,11 @@ export class ImportKnowledgePointDto {
   @Min(1)
   @Max(6)
   grade!: number;
+
+  @ApiPropertyOptional({ example: 'MATH', description: '学科，默认 MATH' })
+  @IsOptional()
+  @IsString()
+  subject?: string;
 
   @ApiPropertyOptional({ example: '整数加法' })
   @IsOptional()
@@ -61,9 +65,14 @@ export class ImportQuestionDto {
   @IsString()
   title!: string;
 
-  @ApiProperty({ example: '小明有 12 支铅笔，又买了 8 支，现在一共有多少支？' })
+  @ApiProperty({ example: '小明原来有 12 支铅笔，又买了 8 支，现在一共有多少支？' })
   @IsString()
   stem!: string;
+
+  @ApiPropertyOptional({ example: 'MATH', description: '学科，默认 MATH' })
+  @IsOptional()
+  @IsString()
+  subject?: string;
 
   @ApiProperty({ enum: QuestionType, example: QuestionType.SHORT_ANSWER })
   @IsEnum(QuestionType)
@@ -140,4 +149,3 @@ export class ImportQuestionsDto {
   @IsString()
   batchName?: string;
 }
-

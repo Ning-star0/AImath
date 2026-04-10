@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+﻿import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OpenAiClient, StudentLearningInsight } from '../../shared/ai/openai.client';
@@ -24,6 +24,62 @@ type TeacherExtraState = {
   requestedClasses: ManagedClassAssignment[];
   approvedClasses: ManagedClassAssignment[];
 };
+
+function normalizeManagedClassName(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  const removedGrade = trimmed.replace(
+    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
+    '',
+  );
+  const map: Record<string, string> = {
+    '1': '\u4e00\u73ed',
+    '2': '\u4e8c\u73ed',
+    '3': '\u4e09\u73ed',
+    '4': '\u56db\u73ed',
+    '5': '\u4e94\u73ed',
+    '6': '\u516d\u73ed',
+  };
+  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
+  if (numericClassMatch) {
+    return map[numericClassMatch[1]] ?? removedGrade.trim();
+  }
+
+  return removedGrade.trim();
+}
+
+function gradeToChinese(grade: number) {
+  const map: Record<number, string> = {
+    1: '\u4e00',
+    2: '\u4e8c',
+    3: '\u4e09',
+    4: '\u56db',
+    5: '\u4e94',
+    6: '\u516d',
+  };
+
+  return map[grade] ?? String(grade);
+}
+
+function expandClassNameVariants(grade: number, className: string) {
+  const normalized = normalizeManagedClassName(className);
+  const variants = new Set<string>();
+
+  if (normalized) {
+    variants.add(normalized);
+    variants.add(`${grade}\u5e74\u7ea7${normalized}`);
+    variants.add(`${gradeToChinese(grade)}\u5e74\u7ea7${normalized}`);
+  }
+
+  if (className.trim()) {
+    variants.add(className.trim());
+  }
+
+  return [...variants];
+}
 
 type ExerciseDetailWithQuestion = Prisma.ExerciseRecordDetailGetPayload<{
   include: {
@@ -65,15 +121,14 @@ export class TeacherService {
         },
         accessControl,
         placeholders: {
-          classLearningOverview: '教师需先提交班级管理申请，并由管理员审核通过后，才能查看对应班级学情。',
-          studentReportEntry: '班级权限审核通过后，学生列表和 AI 学情画像会自动开放。',
+          classLearningOverview: '鏁欏笀闇€鍏堟彁浜ょ彮绾х鐞嗙敵璇凤紝骞剁敱绠＄悊鍛樺鏍搁€氳繃鍚庯紝鎵嶈兘鏌ョ湅瀵瑰簲鐝骇瀛︽儏銆',
+          studentReportEntry: '鐝骇鏉冮檺瀹℃牳閫氳繃鍚庯紝瀛︾敓鍒楄〃鍜?AI 瀛︽儏鐢诲儚浼氳嚜鍔ㄥ紑鏀俱€',
         },
       };
     }
 
-    const studentWhere = this.buildStudentWhereByAssignments(accessControl.approvedClasses);
     const students = await this.prisma.student.findMany({
-      where: studentWhere,
+      where: this.buildStudentCandidateWhereByAssignments(accessControl.approvedClasses),
       include: {
         exerciseRecords: true,
         wrongQuestions: {
@@ -85,18 +140,25 @@ export class TeacherService {
       },
     });
 
-    const studentCount = students.length;
-    const totalQuestions = students.reduce(
+    const filteredStudents = students.filter((student) =>
+      this.isStudentInApprovedClasses(student, accessControl.approvedClasses),
+    );
+
+    const studentCount = filteredStudents.length;
+    const totalQuestions = filteredStudents.reduce(
       (sum, student) =>
         sum + student.exerciseRecords.reduce((recordSum, record) => recordSum + record.totalCount, 0),
       0,
     );
-    const correctCount = students.reduce(
+    const correctCount = filteredStudents.reduce(
       (sum, student) =>
         sum + student.exerciseRecords.reduce((recordSum, record) => recordSum + record.correctCount, 0),
       0,
     );
-    const unresolvedWrongCount = students.reduce((sum, student) => sum + student.wrongQuestions.length, 0);
+    const unresolvedWrongCount = filteredStudents.reduce(
+      (sum, student) => sum + student.wrongQuestions.length,
+      0,
+    );
     const classAccuracyRate =
       totalQuestions === 0 ? 0 : Number(((correctCount / totalQuestions) * 100).toFixed(2));
 
@@ -109,8 +171,8 @@ export class TeacherService {
       },
       accessControl,
       placeholders: {
-        classLearningOverview: '当前数据仅展示已授权班级的整体学情与学生表现。',
-        studentReportEntry: 'AI 学情画像会随练习、错题与知识点掌握情况持续更新。',
+        classLearningOverview: '褰撳墠鏁版嵁浠呭睍绀哄凡鎺堟潈鐝骇鐨勬暣浣撳鎯呬笌瀛︾敓琛ㄧ幇銆',
+        studentReportEntry: 'AI 瀛︽儏鐢诲儚浼氶殢缁冧範銆侀敊棰樹笌鐭ヨ瘑鐐规帉鎻℃儏鍐垫寔缁洿鏂般€',
       },
     };
   }
@@ -127,7 +189,7 @@ export class TeacherService {
     }
 
     const students = await this.prisma.student.findMany({
-      where: this.buildStudentWhereByAssignments(accessControl.approvedClasses),
+      where: this.buildStudentCandidateWhereByAssignments(accessControl.approvedClasses),
       include: {
         user: true,
         exerciseRecords: {
@@ -144,9 +206,13 @@ export class TeacherService {
       orderBy: [{ grade: 'asc' }, { className: 'asc' }, { createdAt: 'asc' }],
     });
 
+    const filteredStudents = students.filter((student) =>
+      this.isStudentInApprovedClasses(student, accessControl.approvedClasses),
+    );
+
     return {
       accessControl,
-      list: students.map((student) => {
+      list: filteredStudents.map((student) => {
         const totalQuestions = student.exerciseRecords.reduce(
           (sum, record) => sum + record.totalCount,
           0,
@@ -167,7 +233,7 @@ export class TeacherService {
         const aiSummary =
           typeof learningProfile?.summary === 'string'
             ? learningProfile.summary
-            : '等待生成 AI 学情分析';
+            : '绛夊緟鐢熸垚 AI 瀛︽儏鍒嗘瀽';
 
         return {
           id: student.id,
@@ -186,7 +252,7 @@ export class TeacherService {
           },
         };
       }),
-      total: students.length,
+      total: filteredStudents.length,
     };
   }
 
@@ -197,8 +263,10 @@ export class TeacherService {
       throw new ForbiddenException('Current teacher account has not been granted class access.');
     }
 
-    const student = await this.prisma.student.findUnique({
-      where: { id: studentId },
+    const student = await this.prisma.student.findFirst({
+      where: {
+        OR: [{ id: studentId }, { studentCode: studentId }],
+      },
       include: {
         user: true,
         exerciseRecords: {
@@ -231,7 +299,7 @@ export class TeacherService {
     });
 
     if (!student) {
-      throw new NotFoundException('学生不存在');
+      throw new NotFoundException('瀛︾敓涓嶅瓨鍦');
     }
 
     if (!this.isStudentInApprovedClasses(student, accessControl.approvedClasses) && user.role !== Role.ADMIN) {
@@ -290,7 +358,7 @@ export class TeacherService {
       knowledgePointName:
         item.knowledgePoint?.name ??
         item.question.questionKnowledgeMaps[0]?.knowledgePoint.name ??
-        '待补充知识点',
+        '寰呰ˉ鍏呯煡璇嗙偣',
     }));
 
     const aiInsight = await this.openAiClient.analyzeStudentLearningProfile({
@@ -356,7 +424,7 @@ export class TeacherService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('教师档案不存在');
+      throw new NotFoundException('鏁欏笀妗ｆ涓嶅瓨鍦');
     }
 
     const extra = this.readTeacherExtra(teacher.extra);
@@ -382,7 +450,7 @@ export class TeacherService {
       classAccessStatus: nextExtra.classAccessStatus,
       requestedClasses: nextExtra.requestedClasses,
       approvedClasses: nextExtra.approvedClasses,
-      nextStep: '班级管理申请已提交，请等待管理员审核通过后查看对应班级学生。',
+      nextStep: '鐝骇绠＄悊鐢宠宸叉彁浜わ紝璇风瓑寰呯鐞嗗憳瀹℃牳閫氳繃鍚庢煡鐪嬪搴旂彮绾у鐢熴€',
     };
   }
 
@@ -408,7 +476,7 @@ export class TeacherService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('教师档案不存在');
+      throw new NotFoundException('鏁欏笀妗ｆ涓嶅瓨鍦');
     }
 
     const extra = this.readTeacherExtra(teacher.extra);
@@ -428,17 +496,20 @@ export class TeacherService {
     };
   }
 
-  private buildStudentWhereByAssignments(assignments: ManagedClassAssignment[]): Prisma.StudentWhereInput {
+  private buildStudentCandidateWhereByAssignments(
+    assignments: ManagedClassAssignment[],
+  ): Prisma.StudentWhereInput {
     if (assignments.length === 0) {
       return { id: '__NO_MATCH__' };
     }
 
     return {
-      OR: assignments.map((item) => ({
-        grade: item.grade,
-        className: item.className,
-        ...(item.schoolName ? { schoolName: item.schoolName } : {}),
-      })),
+      OR: assignments.flatMap((item) =>
+        expandClassNameVariants(item.grade, item.className).map((variant) => ({
+          grade: item.grade,
+          className: variant,
+        })),
+      ),
     };
   }
 
@@ -449,8 +520,11 @@ export class TeacherService {
     return assignments.some(
       (item) =>
         item.grade === student.grade &&
-        item.className === (student.className ?? '') &&
-        (!item.schoolName || item.schoolName === (student.schoolName ?? null)),
+        normalizeManagedClassName(item.className) ===
+          normalizeManagedClassName(student.className ?? '') &&
+        (!item.schoolName ||
+          !student.schoolName ||
+          item.schoolName.trim() === student.schoolName.trim()),
     );
   }
 
@@ -484,30 +558,32 @@ export class TeacherService {
       return [];
     }
 
-    return value
-      .map((item) => {
-        if (!item || typeof item !== 'object') {
-          return null;
-        }
+    const result: ManagedClassAssignment[] = [];
 
-        const row = item as Record<string, unknown>;
-        const grade = Number(row.grade);
-        const className =
-          typeof row.className === 'string' ? row.className.trim() : '';
-        const schoolName =
-          typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
+    for (const item of value) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
 
-        if (!grade || !className) {
-          return null;
-        }
+      const row = item as Record<string, unknown>;
+      const grade = Number(row.grade);
+      const className =
+        typeof row.className === 'string' ? normalizeManagedClassName(row.className) : '';
+      const schoolName =
+        typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
 
-        return {
-          grade,
-          className,
-          schoolName,
-        };
-      })
-      .filter((item): item is ManagedClassAssignment => Boolean(item));
+      if (!grade || !className) {
+        continue;
+      }
+
+      result.push({
+        grade,
+        className,
+        schoolName,
+      });
+    }
+
+    return result;
   }
 
   private buildWeakKnowledgePoints(details: ExerciseDetailWithQuestion[]) {
@@ -528,7 +604,7 @@ export class TeacherService {
         const current = knowledgeMap.get('unknown');
         knowledgeMap.set('unknown', {
           knowledgePointId: 'unknown',
-          knowledgePointName: '待补充知识点',
+          knowledgePointName: '寰呰ˉ鍏呯煡璇嗙偣',
           total: (current?.total ?? 0) + 1,
           wrongCount: (current?.wrongCount ?? 0) + (detail.isCorrect ? 0 : 1),
         });
@@ -577,7 +653,7 @@ export class TeacherService {
       teacherFocus: insight.teacherFocus,
       nextRecommendedKnowledgePoint: weakKnowledgePoints[0]?.knowledgePointName ?? null,
       recommendationSummary:
-        insight.recommendations[0] ?? '建议先从最近错误最多的知识点开始巩固。',
+        insight.recommendations[0] ?? '寤鸿鍏堜粠鏈€杩戦敊璇渶澶氱殑鐭ヨ瘑鐐瑰紑濮嬪珐鍥恒€',
     };
   }
 
@@ -590,3 +666,5 @@ export class TeacherService {
     });
   }
 }
+
+

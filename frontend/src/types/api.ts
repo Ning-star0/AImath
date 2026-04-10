@@ -4,7 +4,7 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
+export type UserRole = 'STUDENT' | 'TEACHER' | 'PARENT' | 'ADMIN';
 
 export interface LoginPayload {
   account: string;
@@ -51,6 +51,19 @@ export interface UserProfile {
       schoolName?: string | null;
     }>;
   } | null;
+  parentBindings?: Array<{
+    id: string;
+    relationLabel: string;
+    bindingStatus: string;
+    student: {
+      id: string;
+      displayName: string;
+      studentCode: string;
+      grade: number;
+      className?: string | null;
+      schoolName?: string | null;
+    };
+  }>;
 }
 
 export interface AuthNextStep {
@@ -73,11 +86,12 @@ export interface RegisterPayload {
   password: string;
   email?: string;
   phone?: string;
-  role: Extract<UserRole, 'STUDENT' | 'TEACHER'>;
+  role: Extract<UserRole, 'STUDENT' | 'TEACHER' | 'PARENT'>;
   grade?: number;
   className?: string;
   schoolName?: string;
   subject?: string;
+  relationLabel?: string;
 }
 
 export interface RegisterResult {
@@ -101,6 +115,7 @@ export interface QuestionItem {
   id: string;
   title: string;
   stem: string;
+  subject?: string;
   questionType: string;
   grade: number;
   difficulty: number;
@@ -121,6 +136,7 @@ export interface SubmitExercisePayload {
     questionId: string;
     answer: string;
   }>;
+  subject?: string;
   context?: Record<string, unknown>;
 }
 

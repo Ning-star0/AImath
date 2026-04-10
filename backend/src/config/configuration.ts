@@ -12,5 +12,11 @@ export default () => ({
     baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
     apiKey: process.env.OPENAI_API_KEY ?? '',
     model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+    visionBaseUrl:
+      process.env.OPENAI_VISION_BASE_URL ??
+      process.env.OPENAI_BASE_URL ??
+      'https://api.openai.com/v1',
+    visionApiKey: process.env.OPENAI_VISION_API_KEY ?? process.env.OPENAI_API_KEY ?? '',
+    visionModel: process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
   },
 });

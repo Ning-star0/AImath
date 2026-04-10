@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, QuestionType, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueryAdminQuestionsDto } from './dto/query-admin-questions.dto';
@@ -19,6 +19,32 @@ type TeacherExtraState = {
   requestedClasses: ManagedClassAssignment[];
   approvedClasses: ManagedClassAssignment[];
 };
+
+function normalizeManagedClassName(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  const removedGrade = trimmed.replace(
+    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
+    '',
+  );
+  const map: Record<string, string> = {
+    '1': '\u4e00\u73ed',
+    '2': '\u4e8c\u73ed',
+    '3': '\u4e09\u73ed',
+    '4': '\u56db\u73ed',
+    '5': '\u4e94\u73ed',
+    '6': '\u516d\u73ed',
+  };
+  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
+  if (numericClassMatch) {
+    return map[numericClassMatch[1]] ?? removedGrade.trim();
+  }
+
+  return removedGrade.trim();
+}
 
 @Injectable()
 export class AdminService {
@@ -43,8 +69,8 @@ export class AdminService {
         aiQaCount,
       },
       placeholders: {
-        aiConfig: '后续可继续扩展模型切换、Prompt 版本和调用限额配置。',
-        governance: '后续可继续扩展用户治理、题库审核和系统日志管理。',
+        aiConfig: '鍚庣画鍙户缁墿灞曟ā鍨嬪垏鎹€丳rompt 鐗堟湰鍜岃皟鐢ㄩ檺棰濋厤缃€',
+        governance: '鍚庣画鍙户缁墿灞曠敤鎴锋不鐞嗐€侀搴撳鏍稿拰绯荤粺鏃ュ織绠＄悊銆',
       },
     };
   }
@@ -107,11 +133,11 @@ export class AdminService {
     });
 
     if (!user || user.role !== Role.TEACHER || !user.teacher) {
-      throw new NotFoundException('未找到待审核的教师账号。');
+      throw new NotFoundException('鏈壘鍒板緟瀹℃牳鐨勬暀甯堣处鍙枫€');
     }
 
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('不能审核当前登录管理员自己的账号。');
+      throw new BadRequestException('涓嶈兘瀹℃牳褰撳墠鐧诲綍绠＄悊鍛樿嚜宸辩殑璐﹀彿銆');
     }
 
     const currentExtra = this.readTeacherExtra(user.teacher.extra);
@@ -159,7 +185,7 @@ export class AdminService {
       isActive: updatedUser.isActive,
       nextStep:
         nextStatus === 'APPROVED'
-          ? '教师账号已审核通过。该教师登录后仍需提交班级管理申请，审核后才能查看对应班级学生。'
+          ? '教师账号已审核通过。该教师登录后仍需提交班级管理申请，审核通过后才能查看对应班级学生。'
           : '教师账号已驳回。该教师需要补充资料后重新提交注册申请。',
     };
   }
@@ -177,22 +203,22 @@ export class AdminService {
     });
 
     if (!user || user.role !== Role.TEACHER || !user.teacher) {
-      throw new NotFoundException('未找到待审核班级权限的教师账号。');
+      throw new NotFoundException('鏈壘鍒板緟瀹℃牳鐝骇鏉冮檺鐨勬暀甯堣处鍙枫€');
     }
 
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('不能审核当前登录管理员自己的班级权限。');
+      throw new BadRequestException('涓嶈兘瀹℃牳褰撳墠鐧诲綍绠＄悊鍛樿嚜宸辩殑鐝骇鏉冮檺銆');
     }
 
     const currentExtra = this.readTeacherExtra(user.teacher.extra);
     if (currentExtra.reviewStatus !== 'APPROVED') {
-      throw new BadRequestException('教师账号尚未通过基础审核，不能审核班级管理权限。');
+      throw new BadRequestException('鏁欏笀璐﹀彿灏氭湭閫氳繃鍩虹瀹℃牳锛屼笉鑳藉鏍哥彮绾х鐞嗘潈闄愩€');
     }
 
     const decision = payload.decision;
     const requestedClasses = currentExtra.requestedClasses;
     if (requestedClasses.length === 0 && decision === 'APPROVED') {
-      throw new BadRequestException('当前教师还没有提交班级管理申请。');
+      throw new BadRequestException('褰撳墠鏁欏笀杩樻病鏈夋彁浜ょ彮绾х鐞嗙敵璇枫€');
     }
 
     const approvedClasses =
@@ -201,7 +227,7 @@ export class AdminService {
         : [];
 
     if (decision === 'APPROVED' && approvedClasses.length === 0) {
-      throw new BadRequestException('审核通过时至少需要分配一个班级。');
+      throw new BadRequestException('瀹℃牳閫氳繃鏃惰嚦灏戦渶瑕佸垎閰嶄竴涓彮绾с€');
     }
 
     const note = payload.note?.trim() || null;
@@ -243,7 +269,7 @@ export class AdminService {
 
   async deleteUser(targetUserId: string, operatorUserId: string) {
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('不能删除当前登录的管理员账号。');
+      throw new BadRequestException('涓嶈兘鍒犻櫎褰撳墠鐧诲綍鐨勭鐞嗗憳璐﹀彿銆');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -263,7 +289,7 @@ export class AdminService {
     });
 
     if (!user) {
-      throw new NotFoundException('未找到要删除的账号。');
+      throw new NotFoundException('鏈壘鍒拌鍒犻櫎鐨勮处鍙枫€');
     }
 
     if (user.role === Role.ADMIN) {
@@ -275,9 +301,29 @@ export class AdminService {
       });
 
       if (adminCount <= 1) {
-        throw new BadRequestException('当前仅剩最后一个启用中的管理员账号，不能删除。');
+        throw new BadRequestException('褰撳墠浠呭墿鏈€鍚庝竴涓惎鐢ㄤ腑鐨勭鐞嗗憳璐﹀彿锛屼笉鑳藉垹闄ゃ€');
       }
     }
+
+    const memorySummary = user.student
+      ? await Promise.all([
+          this.prisma.studentMemorySnapshot.count({
+            where: {
+              studentId: user.student.id,
+            },
+          }),
+          this.prisma.studentMemoryHistory.count({
+            where: {
+              studentId: user.student.id,
+            },
+          }),
+          this.prisma.parentBinding.count({
+            where: {
+              studentId: user.student.id,
+            },
+          }),
+        ])
+      : [0, 0, 0];
 
     await this.prisma.user.delete({
       where: { id: targetUserId },
@@ -295,6 +341,9 @@ export class AdminService {
         wrongQuestionCount: user._count.wrongQuestions,
         aiQaRecordCount: user._count.aiQaRecords,
         learningReportCount: user._count.learningReports,
+        memorySnapshotCount: memorySummary[0],
+        memoryHistoryCount: memorySummary[1],
+        parentBindingCount: memorySummary[2],
       },
     };
   }
@@ -360,8 +409,8 @@ export class AdminService {
       baseUrl: process.env.OPENAI_BASE_URL ?? null,
       promptVersion: 'stage-4-v2',
       placeholders: {
-        moderation: '后续增加回答审核、年级边界校验和风险等级配置。',
-        rateLimit: '后续增加用户级和接口级限流配置。',
+        moderation: '鍚庣画澧炲姞鍥炵瓟瀹℃牳銆佸勾绾ц竟鐣屾牎楠屽拰椋庨櫓绛夌骇閰嶇疆銆',
+        rateLimit: '鍚庣画澧炲姞鐢ㄦ埛绾у拰鎺ュ彛绾ч檺娴侀厤缃€',
       },
     };
   }
@@ -396,29 +445,184 @@ export class AdminService {
       return [];
     }
 
-    return value
-      .map((item) => {
-        if (!item || typeof item !== 'object') {
-          return null;
-        }
+    const result: ManagedClassAssignment[] = [];
 
-        const row = item as Record<string, unknown>;
-        const grade = Number(row.grade);
-        const className =
-          typeof row.className === 'string' ? row.className.trim() : '';
-        const schoolName =
-          typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
+    for (const item of value) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
 
-        if (!grade || !className) {
-          return null;
-        }
+      const row = item as Record<string, unknown>;
+      const grade = Number(row.grade);
+      const className =
+        typeof row.className === 'string' ? normalizeManagedClassName(row.className) : '';
+      const schoolName =
+        typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
 
-        return {
-          grade,
-          className,
-          schoolName,
+      if (!grade || !className) {
+        continue;
+      }
+
+      result.push({
+        grade,
+        className,
+        schoolName,
+      });
+    }
+
+    return result;
+  }
+
+  async getClasses() {
+    const students = await this.prisma.student.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: [{ schoolName: 'asc' }, { grade: 'asc' }, { className: 'asc' }],
+    });
+
+    const teachers = await this.prisma.teacher.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    const classMap = new Map<
+      string,
+      {
+        key: string;
+        schoolName: string | null;
+        grade: number;
+        className: string;
+        studentCount: number;
+        students: Array<{ id: string; displayName: string; studentCode: string }>;
+        assignedTeachers: Array<{ id: string; displayName: string; teacherCode: string | null }>;
+      }
+    >();
+
+    for (const student of students) {
+      if (!student.className) {
+        continue;
+      }
+
+      const normalizedClassName = normalizeManagedClassName(student.className);
+      const key = `${student.schoolName ?? ''}__${student.grade}__${normalizedClassName}`;
+      const current = classMap.get(key) ?? {
+        key,
+        schoolName: student.schoolName ?? null,
+        grade: student.grade,
+        className: normalizedClassName,
+        studentCount: 0,
+        students: [],
+        assignedTeachers: [],
+      };
+
+      current.studentCount += 1;
+      current.students.push({
+        id: student.id,
+        displayName: student.user.displayName,
+        studentCode: student.studentCode,
+      });
+      classMap.set(key, current);
+    }
+
+    for (const teacher of teachers) {
+      const extra = this.readTeacherExtra(teacher.extra);
+      for (const assignment of extra.approvedClasses) {
+        const normalizedClassName = normalizeManagedClassName(assignment.className);
+        const key = `${assignment.schoolName ?? ''}__${assignment.grade}__${normalizedClassName}`;
+        const current = classMap.get(key) ?? {
+          key,
+          schoolName: assignment.schoolName ?? null,
+          grade: assignment.grade,
+          className: normalizedClassName,
+          studentCount: 0,
+          students: [],
+          assignedTeachers: [],
         };
-      })
-      .filter((item): item is ManagedClassAssignment => Boolean(item));
+
+        current.assignedTeachers.push({
+          id: teacher.id,
+          displayName: teacher.user.displayName,
+          teacherCode: teacher.teacherCode,
+        });
+        classMap.set(key, current);
+      }
+    }
+
+    const list = [...classMap.values()].sort((a, b) => {
+      if ((a.schoolName ?? '') !== (b.schoolName ?? '')) {
+        return (a.schoolName ?? '').localeCompare(b.schoolName ?? '');
+      }
+      if (a.grade !== b.grade) {
+        return a.grade - b.grade;
+      }
+      return a.className.localeCompare(b.className);
+    });
+
+    return {
+      total: list.length,
+      list,
+    };
+  }
+
+  async assignStudentToClass(studentId: string, payload: { grade: number; className: string; schoolName?: string | null }) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException('鏈壘鍒拌鍒嗛厤鐝骇鐨勫鐢熴€');
+    }
+
+    const updated = await this.prisma.student.update({
+      where: { id: studentId },
+      data: {
+        grade: payload.grade,
+        className: normalizeManagedClassName(payload.className),
+        schoolName: payload.schoolName?.trim() || null,
+      },
+      include: {
+        user: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    await this.prisma.systemLog.create({
+      data: {
+        module: 'ADMIN',
+        action: 'ASSIGN_STUDENT_CLASS',
+        targetType: 'Student',
+        targetId: updated.id,
+        message: `已调整学生 ${updated.user.displayName} 的班级归属。`,
+        payload: {
+          grade: updated.grade,
+          className: updated.className,
+          schoolName: updated.schoolName,
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      displayName: updated.user.displayName,
+      grade: updated.grade,
+      className: updated.className,
+      schoolName: updated.schoolName,
+    };
   }
 }
+

@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AskAiDto } from './dto/ask-ai.dto';
+import { OcrPreviewDto } from './dto/ocr-preview.dto';
 import { AiQaService } from './ai-qa.service';
 
 @ApiTags('AI QA')
@@ -27,6 +28,17 @@ export class AiQaController {
     @Body() payload: AskAiDto,
   ) {
     return this.aiQaService.ask(user, payload);
+  }
+
+  @Post('ocr-preview')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'OCR 预识别与人工确认接口' })
+  ocrPreview(
+    @CurrentUser() user: { id: string; student?: { id: string } | null },
+    @Body() payload: OcrPreviewDto,
+  ) {
+    return this.aiQaService.ocrPreview(user, payload);
   }
 
   @Post('stream')

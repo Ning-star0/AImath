@@ -1,16 +1,55 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role, Teacher } from '@prisma/client';
+import { ParentBinding, Role, Teacher } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
+
+type TeacherReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+type TeacherClassAccessStatus =
+  | 'NOT_SUBMITTED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED';
+
+type ManagedClassAssignment = {
+  grade: number;
+  className: string;
+  schoolName?: string | null;
+};
+
+function normalizeManagedClassName(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  const removedGrade = trimmed.replace(
+    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
+    '',
+  );
+  const map: Record<string, string> = {
+    '1': '\u4e00\u73ed',
+    '2': '\u4e8c\u73ed',
+    '3': '\u4e09\u73ed',
+    '4': '\u56db\u73ed',
+    '5': '\u4e94\u73ed',
+    '6': '\u516d\u73ed',
+  };
+  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
+  if (numericClassMatch) {
+    return map[numericClassMatch[1]] ?? removedGrade.trim();
+  }
+
+  return removedGrade.trim();
+}
 
 type AuthUserRecord = {
   id: string;
@@ -36,19 +75,20 @@ type AuthUserRecord = {
         extra?: unknown;
       }
     | null;
-};
-
-type TeacherReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-type TeacherClassAccessStatus =
-  | 'NOT_SUBMITTED'
-  | 'PENDING'
-  | 'APPROVED'
-  | 'REJECTED';
-
-type ManagedClassAssignment = {
-  grade: number;
-  className: string;
-  schoolName?: string | null;
+  parentBindings?: Array<
+    Pick<ParentBinding, 'id' | 'relationLabel' | 'bindingStatus'> & {
+      student: {
+        id: string;
+        studentCode: string;
+        grade: number;
+        className?: string | null;
+        schoolName?: string | null;
+        user: {
+          displayName: string;
+        };
+      };
+    }
+  >;
 };
 
 @Injectable()
@@ -62,9 +102,7 @@ export class AuthService {
     const role = payload.role ?? Role.STUDENT;
 
     if (role === Role.ADMIN) {
-      throw new BadRequestException(
-        'Administrator accounts can only be created from the admin console.',
-      );
+      throw new BadRequestException('绠＄悊鍛樿处鍙峰彧鑳界敱鍚庡彴鍒涘缓銆');
     }
 
     const duplicateUser = await this.prisma.user.findFirst({
@@ -78,20 +116,18 @@ export class AuthService {
     });
 
     if (duplicateUser) {
-      throw new BadRequestException(
-        'Username, email, or phone number is already in use.',
-      );
+      throw new BadRequestException('鐢ㄦ埛鍚嶃€侀偖绠辨垨鎵嬫満鍙峰凡琚崰鐢ㄣ€');
     }
 
     const studentCode = payload.studentCode?.trim();
     const teacherCode = payload.teacherCode?.trim();
 
     if (role === Role.STUDENT && !studentCode) {
-      throw new BadRequestException('Student ID is required.');
+      throw new BadRequestException('瀛︾敓娉ㄥ唽蹇呴』濉啓瀛﹀彿銆');
     }
 
     if (role === Role.TEACHER && !teacherCode) {
-      throw new BadRequestException('Teacher ID is required.');
+      throw new BadRequestException('鏁欏笀娉ㄥ唽蹇呴』濉啓宸ュ彿銆');
     }
 
     if (role === Role.STUDENT) {
@@ -100,7 +136,7 @@ export class AuthService {
       });
 
       if (duplicateStudentCode) {
-        throw new BadRequestException('Student ID already exists.');
+        throw new BadRequestException('璇ュ鍙峰凡瀹屾垚娉ㄥ唽銆');
       }
     }
 
@@ -110,12 +146,12 @@ export class AuthService {
       });
 
       if (duplicateTeacherCode) {
-        throw new BadRequestException('Teacher ID already exists.');
+        throw new BadRequestException('璇ュ伐鍙峰凡瀹屾垚娉ㄥ唽銆');
       }
     }
 
     if (role === Role.STUDENT && !payload.grade) {
-      throw new BadRequestException('Grade is required for student registration.');
+      throw new BadRequestException('瀛︾敓娉ㄥ唽闇€瑕佸～鍐欏勾绾т俊鎭€');
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
@@ -127,15 +163,15 @@ export class AuthService {
         passwordHash,
         role,
         displayName: payload.displayName,
-        isActive: role === Role.STUDENT,
+        isActive: role !== Role.TEACHER,
         student:
           role === Role.STUDENT
             ? {
                 create: {
                   studentCode: studentCode!,
                   grade: payload.grade ?? 1,
-                  className: payload.className,
-                  schoolName: payload.schoolName,
+                  className: normalizeManagedClassName(payload.className) || null,
+                  schoolName: payload.schoolName?.trim() || null,
                 },
               }
             : undefined,
@@ -144,8 +180,8 @@ export class AuthService {
             ? {
                 create: {
                   teacherCode: teacherCode!,
-                  schoolName: payload.schoolName,
-                  subject: payload.subject,
+                  schoolName: payload.schoolName?.trim() || null,
+                  subject: payload.subject?.trim() || null,
                   extra: this.buildTeacherExtraPayload('PENDING'),
                 },
               }
@@ -154,6 +190,19 @@ export class AuthService {
       include: {
         student: true,
         teacher: true,
+        parentBindings: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -163,20 +212,29 @@ export class AuthService {
         user: this.buildUserProfile(createdUser),
         nextStep: {
           status: 'PENDING_REVIEW',
-          title: '教师账号申请已提交',
+          title: '鏁欏笀璐﹀彿鐢宠宸叉彁浜',
           description:
-            '我们已收到你的教师注册申请。审核通过并激活后，你就可以登录教师工作台查看班级与学情数据。',
+            '鍩虹鏁欏笀韬唤瀹℃牳閫氳繃鍚庯紝浣犺繕闇€瑕佺櫥褰曟暀甯堢鎻愪氦鐝骇绠＄悊鐢宠锛屽鏍搁€氳繃鍚庢墠鑳芥煡鐪嬪搴旂彮绾у鐢熶俊鎭€',
         },
       };
     }
 
+    const authResult = this.buildAuthResult(createdUser);
     return {
-      ...this.buildAuthResult(createdUser),
-      nextStep: {
-        status: 'AUTO_LOGIN',
-        title: '注册成功',
-        description: '你的学习账号已经创建完成，正在进入学生学习中心。',
-      },
+      ...authResult,
+      nextStep:
+        role === Role.PARENT
+          ? {
+              status: 'AUTO_LOGIN' as const,
+              title: '瀹堕暱璐﹀彿宸插紑閫',
+              description:
+                '瀹堕暱璐﹀彿宸插垱寤哄畬鎴愩€傜櫥褰曞悗璇峰厛缁戝畾瀛╁瓙鐨勫鐢熻处鍙峰拰瀛︾敓瀵嗙爜锛屽啀鏌ョ湅瀵瑰簲瀛︿範鏁版嵁銆',
+            }
+          : {
+              status: 'AUTO_LOGIN' as const,
+              title: '娉ㄥ唽鎴愬姛',
+              description: '浣犵殑瀛︿範璐﹀彿宸插垱寤哄畬鎴愶紝姝ｅ湪杩涘叆瀵瑰簲宸ヤ綔鍙般€',
+            },
     };
   }
 
@@ -194,34 +252,45 @@ export class AuthService {
       include: {
         student: true,
         teacher: true,
+        parentBindings: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Account does not exist.');
+      throw new UnauthorizedException('未找到对应账号，请确认账号后重试。');
     }
 
     if (payload.role && user.role !== payload.role) {
-      throw new UnauthorizedException(
-        'This account does not match the selected role entry.',
-      );
+      throw new UnauthorizedException('当前账号与所选身份入口不匹配，请切换到正确入口后再登录。');
     }
 
     const passwordMatched = await bcrypt.compare(payload.password, user.passwordHash);
     if (!passwordMatched) {
-      throw new UnauthorizedException('Incorrect password.');
+      throw new UnauthorizedException('密码输入不正确，请重新尝试。');
     }
 
     if (!user.isActive) {
       if (user.role === Role.TEACHER) {
         const reviewStatus = this.getTeacherReviewStatus(user.teacher);
         if (reviewStatus === 'REJECTED') {
-          throw new UnauthorizedException('Teacher review was rejected.');
+          throw new UnauthorizedException('鏁欏笀璐﹀彿瀹℃牳鏈€氳繃銆');
         }
-        throw new UnauthorizedException('Teacher review is pending.');
+        throw new UnauthorizedException('鏁欏笀璐﹀彿姝ｅ湪瀹℃牳涓€');
       }
 
-      throw new UnauthorizedException('Account is not activated.');
+      throw new UnauthorizedException('褰撳墠璐﹀彿灏氭湭婵€娲汇€');
     }
 
     return this.buildAuthResult(user);
@@ -233,11 +302,24 @@ export class AuthService {
       include: {
         student: true,
         teacher: true,
+        parentBindings: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (!user) {
-      throw new UnauthorizedException('User does not exist.');
+      throw new UnauthorizedException('鐢ㄦ埛涓嶅瓨鍦ㄣ€');
     }
 
     return this.buildUserProfile(user);
@@ -249,17 +331,28 @@ export class AuthService {
       include: {
         student: true,
         teacher: true,
+        parentBindings: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (!user) {
-      throw new UnauthorizedException('User does not exist.');
+      throw new UnauthorizedException('鐢ㄦ埛涓嶅瓨鍦ㄣ€');
     }
 
     if (user.role !== Role.STUDENT || !user.student) {
-      throw new BadRequestException(
-        'Only student accounts can update student grade information.',
-      );
+      throw new BadRequestException('鍙湁瀛︾敓璐﹀彿鍙互鏇存柊骞寸骇淇℃伅銆');
     }
 
     const updatedStudent = await this.prisma.student.update({
@@ -325,6 +418,20 @@ export class AuthService {
             approvedClasses: teacherReview.approvedClasses,
           }
         : null,
+      parentBindings:
+        user.parentBindings?.map((binding) => ({
+          id: binding.id,
+          relationLabel: binding.relationLabel,
+          bindingStatus: binding.bindingStatus,
+          student: {
+            id: binding.student.id,
+            displayName: binding.student.user.displayName,
+            studentCode: binding.student.studentCode,
+            grade: binding.student.grade,
+            className: binding.student.className ?? null,
+            schoolName: binding.student.schoolName ?? null,
+          },
+        })) ?? [],
     };
   }
 
@@ -374,29 +481,32 @@ export class AuthService {
       return [];
     }
 
-    return value
-      .map((item) => {
-        if (!item || typeof item !== 'object') {
-          return null;
-        }
+    const result: ManagedClassAssignment[] = [];
 
-        const record = item as Record<string, unknown>;
-        const grade = Number(record.grade);
-        const className =
-          typeof record.className === 'string' ? record.className.trim() : '';
-        const schoolName =
-          typeof record.schoolName === 'string' ? record.schoolName.trim() : null;
+    for (const item of value) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
 
-        if (!grade || !className) {
-          return null;
-        }
+      const record = item as Record<string, unknown>;
+      const grade = Number(record.grade);
+      const className =
+        typeof record.className === 'string' ? normalizeManagedClassName(record.className) : '';
+      const schoolName =
+        typeof record.schoolName === 'string' ? record.schoolName.trim() : null;
 
-        return {
-          grade,
-          className,
-          schoolName,
-        };
-      })
-      .filter((item): item is ManagedClassAssignment => Boolean(item));
+      if (!grade || !className) {
+        continue;
+      }
+
+      result.push({
+        grade,
+        className,
+        schoolName,
+      });
+    }
+
+    return result;
   }
 }
+

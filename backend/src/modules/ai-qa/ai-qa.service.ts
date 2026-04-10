@@ -2,10 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  OcrExtractionResult,
   OpenAiClient,
   StructuredAiAnswer,
 } from '../../shared/ai/openai.client';
+import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
 import { AskAiDto } from './dto/ask-ai.dto';
+import { OcrPreviewDto } from './dto/ocr-preview.dto';
 
 interface AuthUser {
   id: string;
@@ -27,12 +30,17 @@ export class AiQaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly openAiClient: OpenAiClient,
+    private readonly studentMemoryService: StudentMemoryService,
   ) {}
 
   async ask(user: AuthUser, payload: AskAiDto) {
     const answer = await this.openAiClient.answerMathQuestion({
       originalQuestion: payload.originalQuestion,
       grade: payload.grade,
+      imageDataUrl: payload.imageDataUrl,
+      manualHint: payload.manualHint,
+      questionType: payload.questionType,
+      options: payload.options,
       context: {
         ...(payload.context ?? {}),
         fromOcr: payload.fromOcr ?? false,
@@ -43,14 +51,81 @@ export class AiQaService {
 
     const persistedRecord = await this.persistAnswer(user, payload, answer);
 
+    if (user.student?.id) {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId: user.student.id,
+        subject: payload.context?.subject as string | undefined,
+        eventType: 'AI_QA',
+      });
+    }
+
     return {
       ...answer,
       recordId: persistedRecord?.id ?? null,
       ocrPlaceholder: {
-        enabled: false,
-        status: 'RESERVED',
-        note: '图片 OCR 接口将在后续阶段接入，这里先保留统一扩展位。',
+        enabled: true,
+        status: payload.fromOcr ? 'USED' : 'NOT_USED',
+        note: payload.fromOcr
+          ? '本次讲题已使用图片识题结果。'
+          : '当前题目由文本输入发起，未经过图片识题。',
       },
+    };
+  }
+
+  async ocrPreview(user: AuthUser, payload: OcrPreviewDto) {
+    const manualText = payload.manualText?.trim() ?? '';
+    const normalizedQuestionType = payload.questionType?.trim() || 'SHORT_ANSWER';
+    const hasImage = Boolean(payload.imageDataUrl?.trim());
+
+    let extracted: OcrExtractionResult;
+
+    if (hasImage) {
+      extracted = await this.openAiClient.extractMathQuestionFromImage({
+        imageDataUrl: payload.imageDataUrl!.trim(),
+        manualHint: manualText || undefined,
+        questionType: normalizedQuestionType,
+        grade: payload.grade,
+      });
+    } else {
+      extracted = {
+        recognizedText: manualText,
+        confidence: manualText ? 0.4 : 0,
+        questionType: normalizedQuestionType,
+        options: this.extractOptions(manualText),
+        needsManualConfirmation: true,
+        note: manualText
+          ? '当前未上传图片，已按手动输入内容生成待确认题干。'
+          : '请先上传题目图片，或手动补充题干后再继续识题。',
+      };
+    }
+
+    await this.prisma.systemLog.create({
+      data: {
+        actorUserId: user.id,
+        module: 'AI_QA',
+        action: 'OCR_PREVIEW',
+        targetType: 'OcrPreview',
+        message: hasImage ? '已完成一次图片识题预览。' : '已生成一次手动题干预览。',
+        payload: {
+          imageName: payload.imageName ?? null,
+          usedImage: hasImage,
+          questionType: extracted.questionType,
+          recognizedLength: extracted.recognizedText.length,
+          optionCount: extracted.options.length,
+          confidence: extracted.confidence,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      status: extracted.recognizedText ? 'READY' : 'FAILED',
+      imageName: payload.imageName ?? null,
+      recognizedText: extracted.recognizedText,
+      confidence: Number((extracted.confidence * 100).toFixed(0)) / 100,
+      questionType: extracted.questionType,
+      options: extracted.options,
+      needsManualConfirmation: extracted.needsManualConfirmation,
+      note: extracted.note,
     };
   }
 
@@ -69,6 +144,10 @@ export class AiQaService {
     const answer = await this.openAiClient.answerMathQuestion({
       originalQuestion: payload.originalQuestion,
       grade: payload.grade,
+      imageDataUrl: payload.imageDataUrl,
+      manualHint: payload.manualHint,
+      questionType: payload.questionType,
+      options: payload.options,
       context: {
         ...(payload.context ?? {}),
         fromOcr: payload.fromOcr ?? false,
@@ -81,13 +160,21 @@ export class AiQaService {
 
     const persistedRecord = await this.persistAnswer(user, payload, answer);
 
+    if (user.student?.id) {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId: user.student.id,
+        subject: payload.context?.subject as string | undefined,
+        eventType: 'AI_QA',
+      });
+    }
+
     this.writeEvent(response, 'result', {
       ...answer,
       recordId: persistedRecord?.id ?? null,
       ocrPlaceholder: {
-        enabled: false,
-        status: 'RESERVED',
-        note: '图片 OCR 接口将在后续阶段接入，这里先保留统一扩展位。',
+        enabled: true,
+        status: payload.fromOcr ? 'USED' : 'NOT_USED',
+        note: payload.fromOcr ? '本次讲题使用了图片识题结果。' : '本次讲题使用了文本输入。',
       },
     });
     this.writeEvent(response, 'done', { success: true });
@@ -110,13 +197,13 @@ export class AiQaService {
           sourceContext: {
             ...(payload.context ?? {}),
             fromOcr: payload.fromOcr ?? false,
-            ocrStatus: payload.fromOcr ? 'RESERVED' : 'NOT_USED',
+            ocrStatus: payload.fromOcr ? 'USED' : 'NOT_USED',
             questionType: payload.questionType ?? null,
             options: payload.options ?? [],
           } as Prisma.InputJsonValue,
           parsedResult: {
             ...answer,
-            promptVersion: 'stage-4-v2',
+            promptVersion: 'stage-4-v3',
           } as Prisma.InputJsonValue,
           modelName: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
           recommendedDrafts: {
@@ -147,10 +234,7 @@ export class AiQaService {
     response.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
-  private async emitPreview(
-    response: SseResponse,
-    answer: StructuredAiAnswer,
-  ) {
+  private async emitPreview(response: SseResponse, answer: StructuredAiAnswer) {
     const previewLines = [
       `我先来审题：${answer.originalQuestion}`,
       answer.knowledgePoints.length > 0
@@ -180,5 +264,12 @@ export class AiQaService {
     return new Promise<void>((resolve) => {
       setTimeout(resolve, ms);
     });
+  }
+
+  private extractOptions(text: string) {
+    return text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^[A-DＡ-Ｄ][\.、\s]/i.test(line));
   }
 }

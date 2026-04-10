@@ -3,7 +3,6 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
-  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
@@ -17,7 +16,6 @@ export class AskAiDto {
     description: '学生输入的原始题目文本',
   })
   @IsString()
-  @IsNotEmpty()
   originalQuestion!: string;
 
   @ApiPropertyOptional({ example: 3, description: '学生年级' })
@@ -59,4 +57,18 @@ export class AskAiDto {
   @IsArray()
   @IsString({ each: true })
   options?: string[];
+
+  @ApiPropertyOptional({
+    description: '图片题目的 Data URL，上传图片后可直接走多模态讲题链路',
+  })
+  @IsOptional()
+  @IsString()
+  imageDataUrl?: string;
+
+  @ApiPropertyOptional({
+    description: '图片讲题时的人类补充提示，可辅助模型理解题干',
+  })
+  @IsOptional()
+  @IsString()
+  manualHint?: string;
 }

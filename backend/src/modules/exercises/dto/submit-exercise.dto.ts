@@ -33,6 +33,11 @@ export class SubmitExerciseDto {
   @Type(() => SubmitExerciseAnswerDto)
   answers!: SubmitExerciseAnswerDto[];
 
+  @ApiPropertyOptional({ example: 'MATH', description: '学科，默认 MATH' })
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
   @ApiPropertyOptional({
     example: { source: 'student-practice-page' },
     description: '练习上下文信息',
@@ -41,4 +46,3 @@ export class SubmitExerciseDto {
   @IsObject()
   context?: Record<string, unknown>;
 }
-

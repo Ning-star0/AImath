@@ -9,6 +9,10 @@ export function getRoleHomePath(role?: UserRole | null) {
     return '/teacher';
   }
 
+  if (role === 'PARENT') {
+    return '/family';
+  }
+
   return '/student';
 }
 

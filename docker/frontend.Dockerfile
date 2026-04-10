@@ -12,8 +12,10 @@ FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 RUN corepack enable
 
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1
+ARG NEXT_PUBLIC_API_BASE_URL=/api/v1
+ARG NEXT_INTERNAL_API_PROXY_TARGET=http://localhost:3001
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_INTERNAL_API_PROXY_TARGET=${NEXT_INTERNAL_API_PROXY_TARGET}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
@@ -28,8 +30,10 @@ WORKDIR /app
 RUN corepack enable
 
 ENV NODE_ENV=production
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1
+ARG NEXT_PUBLIC_API_BASE_URL=/api/v1
+ARG NEXT_INTERNAL_API_PROXY_TARGET=http://localhost:3001
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_INTERNAL_API_PROXY_TARGET=${NEXT_INTERNAL_API_PROXY_TARGET}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules

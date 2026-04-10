@@ -5,6 +5,7 @@ export interface QuestionQuery {
   grade?: number;
   difficulty?: number;
   questionType?: string;
+  subject?: string;
 }
 
 export const questionService = {

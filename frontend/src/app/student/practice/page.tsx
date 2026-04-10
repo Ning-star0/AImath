@@ -24,6 +24,15 @@ import type { ExerciseSubmitResult, QuestionItem, ReportOverviewResult } from '@
 type AiMode = 'REVIEW_QUESTION' | 'GIVE_HINT' | 'REPHRASE_EXPLANATION';
 type QuestionStatus = 'UNANSWERED' | 'CORRECT' | 'WRONG';
 type PageTipTone = 'info' | 'success' | 'warning';
+type StageSummary = {
+  stageIndex: number;
+  title: string;
+  startIndex: number;
+  endIndex: number;
+  total: number;
+  completed: number;
+  wrong: number;
+};
 
 function buildQuestionText(question: QuestionItem) {
   if (!question.options?.length) {
@@ -48,6 +57,29 @@ function getFirstPendingIndex(questions: QuestionItem[], statusMap: Map<string, 
   return firstPending >= 0 ? firstPending : 0;
 }
 
+function buildStageSummaries(questions: QuestionItem[], statusMap: Map<string, QuestionStatus>) {
+  const chunkSize = 5;
+  const stages: StageSummary[] = [];
+
+  for (let index = 0; index < questions.length; index += chunkSize) {
+    const slice = questions.slice(index, index + chunkSize);
+    const completed = slice.filter((item) => statusMap.has(item.id)).length;
+    const wrong = slice.filter((item) => statusMap.get(item.id) === 'WRONG').length;
+
+    stages.push({
+      stageIndex: stages.length,
+      title: `第 ${stages.length + 1} 站`,
+      startIndex: index,
+      endIndex: index + slice.length - 1,
+      total: slice.length,
+      completed,
+      wrong,
+    });
+  }
+
+  return stages;
+}
+
 export default function StudentPracticePage() {
   const currentUser = useUserStore((state) => state.currentUser);
   const hydrateSession = useUserStore((state) => state.hydrateSession);
@@ -68,10 +100,20 @@ export default function StudentPracticePage() {
   const [aiResult, setAiResult] = useState<Awaited<ReturnType<typeof aiService.askQuestion>> | null>(null);
   const [pageTip, setPageTip] = useState('');
   const [pageTipTone, setPageTipTone] = useState<PageTipTone>('info');
+  const [selectedSubject, setSelectedSubject] = useState('MATH');
 
   useEffect(() => {
     hydrateSession();
   }, [hydrateSession]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setSelectedSubject((params.get('subject') || 'MATH').toUpperCase());
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -90,7 +132,7 @@ export default function StudentPracticePage() {
 
         const grade = resolvedUser.grade ?? resolvedUser.student?.grade ?? 3;
         const [questionData, reportData] = await Promise.all([
-          questionService.getQuestionList({ grade }),
+          questionService.getQuestionList({ grade, subject: selectedSubject }),
           reportService.getOverview(),
         ]);
 
@@ -124,6 +166,11 @@ export default function StudentPracticePage() {
   const activeStatus = activeQuestion ? statusMap.get(activeQuestion.id) ?? 'UNANSWERED' : 'UNANSWERED';
   const correctCount = useMemo(() => [...statusMap.values()].filter((item) => item === 'CORRECT').length, [statusMap]);
   const accuracyRate = answeredCount === 0 ? 0 : Number(((correctCount / answeredCount) * 100).toFixed(0));
+  const stageSummaries = useMemo(() => buildStageSummaries(questions, statusMap), [questions, statusMap]);
+  const activeStageIndex = useMemo(
+    () => stageSummaries.findIndex((stage) => activeIndex >= stage.startIndex && activeIndex <= stage.endIndex),
+    [activeIndex, stageSummaries],
+  );
 
   const handleSelectQuestion = (index: number) => {
     setActiveIndex(index);
@@ -170,7 +217,9 @@ export default function StudentPracticePage() {
         answers: [{ questionId: activeQuestion.id, answer }],
         context: {
           page: 'student-practice-single-question',
+          subject: selectedSubject,
         },
+        subject: selectedSubject,
       });
 
       setResult(response);
@@ -279,6 +328,52 @@ export default function StudentPracticePage() {
       <section className="portal-board px-5 py-5 sm:px-6">
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <article className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
+            <div className="mb-5 rounded-[1.5rem] border border-brand-100 bg-white px-4 py-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-brand-700">地图闯关</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    当前学科：{selectedSubject === 'MATH' ? '数学' : selectedSubject}。每 5 题为一站，做完当前站后再进入下一站。
+                  </p>
+                </div>
+                <span className="rounded-full bg-brand-50 px-3 py-2 text-xs font-black text-brand-700">
+                  当前第 {Math.max(activeStageIndex + 1, 1)} 站
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {stageSummaries.map((stage) => {
+                  const isActiveStage = stage.stageIndex === activeStageIndex;
+                  const isComplete = stage.completed === stage.total;
+
+                  return (
+                    <button
+                      key={stage.title}
+                      type="button"
+                      onClick={() => handleSelectQuestion(stage.startIndex)}
+                      className={`rounded-[1.2rem] border px-4 py-4 text-left transition ${
+                        isActiveStage
+                          ? 'border-brand-300 bg-brand-50 shadow-[0_10px_20px_rgba(63,81,181,0.12)]'
+                          : isComplete
+                            ? 'border-emerald-200 bg-emerald-50'
+                            : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-black text-ink">{stage.title}</p>
+                        <span className="text-xs font-bold text-slate-500">
+                          {stage.completed}/{stage.total}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {stage.wrong > 0 ? `本阶段有 ${stage.wrong} 题待订正` : '当前阶段继续保持'}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
