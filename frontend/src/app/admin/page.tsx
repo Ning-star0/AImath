@@ -5,10 +5,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { PageShell } from '@/components/base/page-shell';
 import {
+  AuthRequiredState,
+  NetworkErrorState,
+  PageLoadErrorState,
+  PermissionDeniedState,
+  SessionExpiredState,
+} from '@/components/states/platform-states';
+import { getPlatformErrorKind } from '@/lib/platform-errors';
+import {
   adminService,
   type AdminAiConfigResult,
   type AdminDashboardResult,
 } from '@/services/admin.service';
+import { useUserStore } from '@/store/use-user-store';
 
 const adminNavItems = [
   { href: '/admin', label: '管理首页' },
@@ -17,9 +26,16 @@ const adminNavItems = [
 ];
 
 export default function AdminPage() {
+  const accessToken = useUserStore((state) => state.accessToken);
+  const currentUser = useUserStore((state) => state.currentUser);
+  const hydrateSession = useUserStore((state) => state.hydrateSession);
   const [dashboard, setDashboard] = useState<AdminDashboardResult | null>(null);
   const [aiConfig, setAiConfig] = useState<AdminAiConfigResult | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    hydrateSession();
+  }, [hydrateSession]);
 
   useEffect(() => {
     const load = async () => {
@@ -31,7 +47,7 @@ export default function AdminPage() {
         setDashboard(dashboardData);
         setAiConfig(aiConfigData);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : '管理端数据加载失败');
+        setError(loadError instanceof Error ? loadError.message : '管理端数据加载失败。');
       }
     };
 
@@ -43,40 +59,67 @@ export default function AdminPage() {
       dashboard
         ? [
             ['用户总数', dashboard.systemStats.userCount, 'bg-[#EEF1FF] text-brand-700'],
-            ['学生数', dashboard.systemStats.studentCount, 'bg-[#EAF7EC] text-[#2E7D32]'],
-            ['教师数', dashboard.systemStats.teacherCount, 'bg-[#E7F3FF] text-[#1565C0]'],
+            ['学生账号', dashboard.systemStats.studentCount, 'bg-[#EAF7EC] text-[#2E7D32]'],
+            ['教师账号', dashboard.systemStats.teacherCount, 'bg-[#E7F3FF] text-[#1565C0]'],
             ['题目总数', dashboard.systemStats.questionCount, 'bg-[#FFF4E5] text-[#EF6C00]'],
-            ['AI 问答数', dashboard.systemStats.aiQaCount, 'bg-[#F4EBFF] text-[#8E24AA]'],
+            ['AI问答数', dashboard.systemStats.aiQaCount, 'bg-[#F4EBFF] text-[#8E24AA]'],
           ]
         : [],
     [dashboard],
   );
 
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="系统管理中心" description="查看平台运行概览并维护题库与用户账号。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'ADMIN') {
+    return (
+      <PageShell title="系统管理中心" description="查看平台运行概览并维护题库与用户账号。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    const kind = getPlatformErrorKind(error);
+    return (
+      <PageShell title="系统管理中心" description="查看平台运行概览并维护题库与用户账号。">
+        {kind === 'session_expired' ? (
+          <SessionExpiredState />
+        ) : kind === 'network_error' ? (
+          <NetworkErrorState />
+        ) : kind === 'permission_denied' ? (
+          <PermissionDeniedState />
+        ) : (
+          <PageLoadErrorState />
+        )}
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       title="系统管理中心"
-      description="维护题库、用户与系统运行配置，让管理端也保持与整个平台一致的品牌语言和完成度。"
+      description="维护题库、用户和 AI 配置，让管理端保持稳定、高效且与整个平台共享统一品牌语言。"
       navItems={adminNavItems}
     >
-      {error ? (
-        <div className="mb-6 rounded-[1.2rem] bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-          {error}
-        </div>
-      ) : null}
-
       <section className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         <article className="math-card relative overflow-hidden rounded-[2rem] px-6 py-6">
           <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(63,81,181,0.12),transparent_58%),radial-gradient(circle_at_top_right,rgba(96,125,139,0.16),transparent_54%)]" />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-xs font-black tracking-[0.16em] text-brand-700 shadow-sm ring-1 ring-brand-100">
-                ADMIN CENTER
+                Admin Center
               </div>
               <h2 className="mt-4 font-math-display text-3xl font-extrabold text-ink md:text-[2.4rem]">
-                更清晰的系统概览，更像完整平台的管理端
+                平台治理、题库维护与配置管理入口
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 md:text-base">
-                管理端负责题库、用户与 AI 配置维护。视觉上更稳重，但仍然属于同一套小学数学学习平台。
+                管理端负责题库、用户和 AI 配置维护。视觉上更稳重，但仍然属于同一套小学数学学习平台。
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
@@ -99,7 +142,7 @@ export default function AdminPage() {
               <div className="space-y-1">
                 <p className="font-math-display text-xl font-extrabold text-ink">平台维护提醒</p>
                 <p className="max-w-[14rem] text-sm leading-6 text-slate-600">
-                  管理端偏效率工具，但品牌语言不应与学生端和教师端割裂。
+                  先看系统概览，再处理用户、题库与 AI 配置。
                 </p>
               </div>
             </div>
@@ -124,7 +167,7 @@ export default function AdminPage() {
             <div className="rounded-[1.5rem] bg-[#F4EBFF] px-5 py-5">
               <p className="font-math-display text-2xl font-extrabold text-ink">AI 配置概览</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                当前模型：{aiConfig?.model ?? '未读取'}。接入方式：{aiConfig?.provider ?? 'OpenAI-compatible'}。
+                当前模型：{aiConfig?.model ?? '未读取'}。接入方式：{aiConfig?.provider ?? '兼容 OpenAI 协议'}。
               </p>
             </div>
           </div>
@@ -149,15 +192,13 @@ export default function AdminPage() {
         <article className="math-card rounded-[2rem] px-6 py-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">
-                GOVERNANCE
-              </p>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">Governance</p>
               <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">
                 平台治理概览
               </h3>
             </div>
             <div className="rounded-[1rem] bg-[#F7F9FF] px-4 py-3 text-sm font-semibold text-slate-600 ring-1 ring-brand-100">
-              更清晰、更实用，但保留品牌感
+              清晰、实用，同时保留品牌感
             </div>
           </div>
 
@@ -165,15 +206,14 @@ export default function AdminPage() {
             <div className="rounded-[1.5rem] bg-[#F8FAFF] px-5 py-5 ring-1 ring-slate-100">
               <p className="font-math-display text-2xl font-extrabold text-ink">治理说明</p>
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                {dashboard?.placeholders.governance ??
-                  '这里用于承接用户、题库和系统运行相关治理信息。'}
+                {dashboard?.placeholders.governance ?? '这里用于承接用户、题库和系统运行相关治理信息。'}
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-[1.5rem] bg-[#EEF4FF] px-5 py-5">
                 <p className="font-semibold text-brand-700">用户与角色</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
-                  关注账号数量、角色完整性与是否启用，确保三角色平台能顺畅运行。
+                  关注账号数量、角色完整性与是否启用，确保三角色平台稳定运行。
                 </p>
               </div>
               <div className="rounded-[1.5rem] bg-[#FFF6E8] px-5 py-5">
@@ -187,9 +227,7 @@ export default function AdminPage() {
         </article>
 
         <article className="math-card rounded-[2rem] px-6 py-6">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">
-            AI CONFIG
-          </p>
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">AI Config</p>
           <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">AI 配置状态</h3>
 
           <div className="mt-6 grid gap-4">

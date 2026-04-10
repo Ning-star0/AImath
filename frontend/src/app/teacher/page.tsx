@@ -5,9 +5,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { PageShell } from '@/components/base/page-shell';
 import {
-  teacherService,
-  type TeacherDashboardResult,
-} from '@/services/teacher.service';
+  AuthRequiredState,
+  NetworkErrorState,
+  PageLoadErrorState,
+  PermissionDeniedState,
+  SessionExpiredState,
+  TeacherPendingReviewState,
+} from '@/components/states/platform-states';
+import { getPlatformErrorKind } from '@/lib/platform-errors';
+import { teacherService, type TeacherDashboardResult } from '@/services/teacher.service';
+import { useUserStore } from '@/store/use-user-store';
 
 const teacherNavItems = [
   { href: '/teacher', label: '教师首页' },
@@ -15,8 +22,15 @@ const teacherNavItems = [
 ];
 
 export default function TeacherPage() {
+  const accessToken = useUserStore((state) => state.accessToken);
+  const currentUser = useUserStore((state) => state.currentUser);
+  const hydrateSession = useUserStore((state) => state.hydrateSession);
   const [data, setData] = useState<TeacherDashboardResult | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    hydrateSession();
+  }, [hydrateSession]);
 
   useEffect(() => {
     const load = async () => {
@@ -24,7 +38,7 @@ export default function TeacherPage() {
         const response = await teacherService.getDashboard();
         setData(response);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : '教师端数据加载失败');
+        setError(loadError instanceof Error ? loadError.message : '教师端数据加载失败，请稍后重试。');
       }
     };
 
@@ -39,7 +53,7 @@ export default function TeacherPage() {
               label: '班级学生数',
               value: data.classOverview.studentCount,
               tone: 'bg-[#EEF1FF] text-brand-700',
-              detail: '正在使用学习平台的学生',
+              detail: '正在使用学习平台的学生人数',
             },
             {
               label: '累计做题量',
@@ -51,7 +65,7 @@ export default function TeacherPage() {
               label: '班级正确率',
               value: `${data.classOverview.classAccuracyRate}%`,
               tone: 'bg-[#FFF4E5] text-[#EF6C00]',
-              detail: '帮助判断当前整体掌握情况',
+              detail: '便于判断当前整体掌握情况',
             },
             {
               label: '待巩固错题',
@@ -64,18 +78,54 @@ export default function TeacherPage() {
     [data],
   );
 
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="教师工作台" description="查看班级学情、学生进度与作业完成情况。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role === 'TEACHER' && currentUser.isActive === false) {
+    return (
+      <PageShell title="教师工作台" description="查看班级学情、学生进度与作业完成情况。">
+        <TeacherPendingReviewState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'TEACHER') {
+    return (
+      <PageShell title="教师工作台" description="查看班级学情、学生进度与作业完成情况。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    const errorKind = getPlatformErrorKind(error);
+
+    return (
+      <PageShell title="教师工作台" description="查看班级学情、学生进度与作业完成情况。">
+        {errorKind === 'session_expired' ? (
+          <SessionExpiredState />
+        ) : errorKind === 'network_error' ? (
+          <NetworkErrorState />
+        ) : errorKind === 'permission_denied' ? (
+          <PermissionDeniedState />
+        ) : (
+          <PageLoadErrorState />
+        )}
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       title="教师工作区"
-      description="查看班级学习进展、学生练习表现和待巩固错题，让教师端与学生学习闭环自然衔接。"
+      description="查看班级学习进展、学生练习表现和待巩固错题，让教学跟进更清晰。"
       navItems={teacherNavItems}
     >
-      {error ? (
-        <div className="mb-6 rounded-[1.2rem] bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-          {error}
-        </div>
-      ) : null}
-
       <section className="grid gap-6 xl:grid-cols-[1.14fr_0.86fr]">
         <article className="math-card relative overflow-hidden rounded-[2rem] px-6 py-6">
           <div className="absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top_left,rgba(63,81,181,0.14),transparent_62%),radial-gradient(circle_at_top_right,rgba(76,175,80,0.14),transparent_48%)]" />
@@ -88,7 +138,7 @@ export default function TeacherPage() {
                 更像教育工作区的班级学情首页
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 md:text-base">
-                这里不是通用后台，而是教师查看班级学习进度、发现待跟进学生、安排后续巩固的统一入口。
+                这里不是通用后台，而是老师查看班级学习进度、发现待跟进学生、安排后续巩固的统一入口。
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
@@ -98,7 +148,7 @@ export default function TeacherPage() {
                   查看学生列表
                 </Link>
                 <div className="inline-flex items-center rounded-[1rem] bg-white/90 px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm ring-1 ring-slate-100">
-                  学生练习、错题、报告都可在教师端串联查看
+                  学生练习、错题和报告都可以在教师端串联查看
                 </div>
               </div>
             </div>
@@ -108,7 +158,7 @@ export default function TeacherPage() {
               <div className="space-y-1">
                 <p className="font-math-display text-xl font-extrabold text-ink">爱因导师提醒</p>
                 <p className="max-w-[14rem] text-sm leading-6 text-slate-600">
-                  先看整体趋势，再找需要跟进的学生，会比单看数字更高效。
+                  先看整体趋势，再找需要重点关注的学生，通常比单看数字更高效。
                 </p>
               </div>
             </div>
@@ -116,11 +166,11 @@ export default function TeacherPage() {
         </article>
 
         <article className="math-card rounded-[2rem] px-6 py-6">
-          <h3 className="font-math-display text-2xl font-extrabold text-ink">教师端重点能力</h3>
+          <h3 className="font-math-display text-2xl font-extrabold text-ink">教师端核心能力</h3>
           <div className="mt-5 grid gap-4">
             {[
               ['班级总览', '快速看到学生规模、做题量、正确率和待巩固错题。'],
-              ['学生列表', '逐个查看学生表现，作为后续教学跟进入口。'],
+              ['学生列表', '按学生维度查看练习表现，作为后续教学跟进入口。'],
               ['报告预览', '不打断学生端主链路，也能在教师端了解学习进展。'],
             ].map(([title, description]) => (
               <div
@@ -154,15 +204,11 @@ export default function TeacherPage() {
         <article className="math-card rounded-[2rem] px-6 py-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">
-                CLASS INSIGHT
-              </p>
-              <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">
-                班级学情概览
-              </h3>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">CLASS INSIGHT</p>
+              <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">班级学情概览</h3>
             </div>
             <div className="rounded-[1rem] bg-[#EEF4FF] px-4 py-3 text-sm font-semibold text-brand-700">
-              更偏教学判断，而不是 ERP 报表
+              更偏教学判断，而不是后台报表
             </div>
           </div>
 
@@ -170,8 +216,7 @@ export default function TeacherPage() {
             <div className="rounded-[1.5rem] bg-[#F7F9FF] px-5 py-5 ring-1 ring-brand-100">
               <p className="font-math-display text-2xl font-extrabold text-ink">当前观察重点</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                {data?.placeholders.classLearningOverview ??
-                  '正在整理班级近期练习、错题与正确率情况。'}
+                {data?.placeholders.classLearningOverview ?? '正在整理班级近期练习、错题和正确率情况。'}
               </p>
             </div>
 
@@ -179,13 +224,13 @@ export default function TeacherPage() {
               <div className="rounded-[1.5rem] bg-[#EAF7EC] px-5 py-5">
                 <p className="font-semibold text-[#2E7D32]">教学动作建议</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
-                  如果待巩固错题较多，适合优先安排针对性复习，而不是继续盲目刷题。
+                  如果待巩固错题较多，更适合优先安排针对性复习，而不是继续盲目刷题。
                 </p>
               </div>
               <div className="rounded-[1.5rem] bg-[#FFF6E8] px-5 py-5">
-                <p className="font-semibold text-[#EF6C00]">后续可扩展方向</p>
+                <p className="font-semibold text-[#EF6C00]">后续扩展方向</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
-                  未来可以继续补充分层推荐、班级趋势图和分知识点对比，但当前结构已具备教师入口雏形。
+                  后续可以继续补充分层推荐、班级趋势对比和知识点分析，当前结构已具备正式教师入口雏形。
                 </p>
               </div>
             </div>
@@ -195,12 +240,8 @@ export default function TeacherPage() {
         <article className="math-card rounded-[2rem] px-6 py-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">
-                QUICK ENTRY
-              </p>
-              <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">
-                常用工作入口
-              </h3>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">QUICK ENTRY</p>
+              <h3 className="mt-2 font-math-display text-3xl font-extrabold text-ink">常用工作入口</h3>
             </div>
             <Link
               href="/teacher/students"
@@ -224,14 +265,11 @@ export default function TeacherPage() {
               },
               {
                 title: '识别重点关注对象',
-                description: '结合待巩固错题与正确率，优先确定需要跟进的学生。',
+                description: '结合待巩固错题和正确率，优先确定需要跟进的学生。',
                 tone: 'bg-[#FFF6E8]',
               },
             ].map((item) => (
-              <div
-                key={item.title}
-                className={`rounded-[1.5rem] px-5 py-5 ${item.tone} ring-1 ring-white/70`}
-              >
+              <div key={item.title} className={`rounded-[1.5rem] px-5 py-5 ${item.tone} ring-1 ring-white/70`}>
                 <p className="font-math-display text-2xl font-extrabold text-ink">{item.title}</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">{item.description}</p>
               </div>

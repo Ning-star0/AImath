@@ -13,16 +13,9 @@ const toneClassMap: Record<NonNullable<ProgressBarProps['tone']>, string> = {
   purple: 'from-violet-400 to-fuchsia-500',
 };
 
-export function ProgressBar({
-  value,
-  total,
-  tone = 'green',
-}: ProgressBarProps) {
+export function ProgressBar({ value, total, tone = 'green' }: ProgressBarProps) {
   const normalizedTotal = total <= 0 ? 1 : total;
-  const percent = Math.max(
-    0,
-    Math.min(100, Math.round((value / normalizedTotal) * 100)),
-  );
+  const percent = Math.max(0, Math.min(100, Math.round((value / normalizedTotal) * 100)));
 
   return (
     <div className="space-y-2">

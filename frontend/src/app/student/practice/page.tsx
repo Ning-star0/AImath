@@ -1,65 +1,51 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { EinsteinMentor } from '@/components/brand/einstein-mentor';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { CompactAiResult } from '@/components/ai-qa/compact-ai-result';
+import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
 import { PageShell } from '@/components/base/page-shell';
-import { AdventureMapBoard } from '@/components/practice/adventure-map-board';
-import { awardStars } from '@/lib/game-rewards';
-import { authService } from '@/services/auth.service';
-import { aiService } from '@/services/ai.service';
-import { exerciseService } from '@/services/exercise.service';
 import {
-  questionService,
-  type QuestionQuery,
-} from '@/services/question.service';
+  AuthRequiredState,
+  NetworkErrorState,
+  NoLearningDataState,
+  PageLoadErrorState,
+  SessionExpiredState,
+} from '@/components/states/platform-states';
+import { getPlatformErrorKind } from '@/lib/platform-errors';
+import { aiService } from '@/services/ai.service';
+import { authService } from '@/services/auth.service';
+import { exerciseService } from '@/services/exercise.service';
+import { questionService } from '@/services/question.service';
 import { reportService } from '@/services/report.service';
 import { useUserStore } from '@/store/use-user-store';
-import type {
-  ExerciseSubmitResult,
-  QuestionItem,
-  ReportOverviewResult,
-} from '@/types/api';
+import type { ExerciseSubmitResult, QuestionItem, ReportOverviewResult } from '@/types/api';
 
-function sortQuestionsWithFocus(
-  list: QuestionItem[],
-  focusQuestionId: string | null,
-) {
-  if (!focusQuestionId) {
-    return list;
+type AiMode = 'REVIEW_QUESTION' | 'GIVE_HINT' | 'REPHRASE_EXPLANATION';
+type QuestionStatus = 'UNANSWERED' | 'CORRECT' | 'WRONG';
+type PageTipTone = 'info' | 'success' | 'warning';
+
+function buildQuestionText(question: QuestionItem) {
+  if (!question.options?.length) {
+    return question.stem;
   }
 
-  return [...list].sort((left, right) => {
-    if (left.id === focusQuestionId) {
-      return -1;
-    }
-    if (right.id === focusQuestionId) {
-      return 1;
-    }
-    return 0;
-  });
+  return `${question.stem}\n${question.options.map((item) => `${item.label}. ${item.value}`).join('\n')}`;
 }
 
-function getLongestCorrectStreak(
-  details: ExerciseSubmitResult['details'] | undefined,
-) {
-  if (!details?.length) {
-    return 0;
+function buildStatusMap(report: ReportOverviewResult | null) {
+  const map = new Map<string, QuestionStatus>();
+
+  for (const item of report?.questionDrilldowns.all ?? []) {
+    map.set(item.questionId, item.isCorrect ? 'CORRECT' : 'WRONG');
   }
 
-  let current = 0;
-  let longest = 0;
+  return map;
+}
 
-  for (const detail of details) {
-    if (detail.isCorrect) {
-      current += 1;
-      longest = Math.max(longest, current);
-    } else {
-      current = 0;
-    }
-  }
-
-  return longest;
+function getFirstPendingIndex(questions: QuestionItem[], statusMap: Map<string, QuestionStatus>) {
+  const firstPending = questions.findIndex((item) => !statusMap.has(item.id));
+  return firstPending >= 0 ? firstPending : 0;
 }
 
 export default function StudentPracticePage() {
@@ -70,720 +56,446 @@ export default function StudentPracticePage() {
 
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<ExerciseSubmitResult | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState<QuestionQuery>({});
+  const [result, setResult] = useState<ExerciseSubmitResult | null>(null);
   const [report, setReport] = useState<ReportOverviewResult | null>(null);
-  const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null);
-  const [aiLoadingQuestionId, setAiLoadingQuestionId] = useState<string | null>(null);
-  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
-  const [aiPanelTitle, setAiPanelTitle] = useState<Record<string, string>>({});
-  const [aiResults, setAiResults] = useState<Record<string, Awaited<ReturnType<typeof aiService.askQuestion>>>>({});
-  const [earnedStars, setEarnedStars] = useState(0);
-  const [totalStars, setTotalStars] = useState(0);
-  const [mapOpen, setMapOpen] = useState(true);
-  const [selectedStageId, setSelectedStageId] = useState('warmup');
-  const [mapTip, setMapTip] = useState('');
-  const questionSectionRef = useRef<HTMLElement | null>(null);
+  const [statusMap, setStatusMap] = useState<Map<string, QuestionStatus>>(new Map());
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTitle, setAiTitle] = useState('AI 辅助');
+  const [aiResult, setAiResult] = useState<Awaited<ReturnType<typeof aiService.askQuestion>> | null>(null);
+  const [pageTip, setPageTip] = useState('');
+  const [pageTipTone, setPageTipTone] = useState<PageTipTone>('info');
 
   useEffect(() => {
     hydrateSession();
   }, [hydrateSession]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const queryGrade = params.get('grade');
-    const questionId = params.get('questionId');
-
-    if (queryGrade) {
-      setFilters((prev) => ({
-        ...prev,
-        grade: Number(queryGrade),
-      }));
-    }
-
-    if (questionId) {
-      setFocusQuestionId(questionId);
-    }
-  }, []);
-
-  useEffect(() => {
-    const resolveGrade = async () => {
+    const loadData = async () => {
       if (!accessToken) {
         return;
       }
 
+      setLoading(true);
+      setError('');
+
       try {
         const resolvedUser = currentUser ?? (await authService.getCurrentUser());
-
         if (!currentUser) {
           setSession(accessToken, resolvedUser);
         }
 
         const grade = resolvedUser.grade ?? resolvedUser.student?.grade ?? 3;
-        setFilters((prev) => ({
-          ...prev,
-          grade: prev.grade ?? grade,
-        }));
-      } catch {
-        setFilters((prev) => ({
-          ...prev,
-          grade: prev.grade ?? 3,
-        }));
-      }
-    };
-
-    void resolveGrade();
-  }, [accessToken, currentUser, setSession]);
-
-  useEffect(() => {
-    const loadQuestions = async () => {
-      setLoading(true);
-      setError('');
-
-      try {
         const [questionData, reportData] = await Promise.all([
-          questionService.getQuestionList(filters),
+          questionService.getQuestionList({ grade }),
           reportService.getOverview(),
         ]);
 
+        const nextStatusMap = buildStatusMap(reportData);
         setQuestions(questionData.list);
         setReport(reportData);
-        setAnswers({});
-        setResult(null);
+        setStatusMap(nextStatusMap);
+        setActiveIndex((current) => {
+          if (questionData.list.length === 0) {
+            return 0;
+          }
+          return current < questionData.list.length ? current : getFirstPendingIndex(questionData.list, nextStatusMap);
+        });
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : '题目加载失败。');
+        setError(loadError instanceof Error ? loadError.message : '练习题目加载失败，请稍后重试。');
       } finally {
         setLoading(false);
       }
     };
 
-    void loadQuestions();
-  }, [filters]);
+    void loadData();
+  }, [accessToken, currentUser, setSession]);
 
-  const masteredQuestionIds = useMemo(
-    () => new Set(report?.questionDrilldowns.correct.map((item) => item.questionId) ?? []),
-    [report],
+  const activeQuestion = questions[activeIndex] ?? null;
+  const progressLabel = questions.length > 0 ? `${activeIndex + 1} / ${questions.length}` : '0 / 0';
+  const answeredCount = useMemo(() => [...statusMap.values()].filter((item) => item !== 'UNANSWERED').length, [statusMap]);
+  const activeResult = useMemo(
+    () => result?.details?.find((item) => item.questionId === activeQuestion?.id) ?? null,
+    [activeQuestion?.id, result?.details],
   );
+  const activeStatus = activeQuestion ? statusMap.get(activeQuestion.id) ?? 'UNANSWERED' : 'UNANSWERED';
+  const correctCount = useMemo(() => [...statusMap.values()].filter((item) => item === 'CORRECT').length, [statusMap]);
+  const accuracyRate = answeredCount === 0 ? 0 : Number(((correctCount / answeredCount) * 100).toFixed(0));
 
-  const pendingQuestions = useMemo(() => {
-    const baseList = questions.filter(
-      (item) => !masteredQuestionIds.has(item.id) || item.id === focusQuestionId,
-    );
-    return sortQuestionsWithFocus(baseList, focusQuestionId);
-  }, [focusQuestionId, masteredQuestionIds, questions]);
+  const handleSelectQuestion = (index: number) => {
+    setActiveIndex(index);
+    setAiResult(null);
+    setPageTip('');
+    setPageTipTone('info');
+  };
 
-  const masteredQuestions = useMemo(
-    () => questions.filter((item) => masteredQuestionIds.has(item.id) && item.id !== focusQuestionId),
-    [focusQuestionId, masteredQuestionIds, questions],
-  );
+  const handleAnswerChange = (questionId: string, value: string) => {
+    setAnswers((current) => ({ ...current, [questionId]: value }));
+  };
 
-  const resultDetailMap = useMemo(() => {
-    const entries =
-      result?.details?.map((detail) => [detail.questionId, detail] as const) ?? [];
-
-    return new Map(entries);
-  }, [result]);
+  const refreshReportState = async (preserveIndex = activeIndex) => {
+    const refreshedReport = await reportService.getOverview();
+    const nextStatusMap = buildStatusMap(refreshedReport);
+    setReport(refreshedReport);
+    setStatusMap(nextStatusMap);
+    setActiveIndex((current) => {
+      if (questions.length === 0) {
+        return 0;
+      }
+      return Math.min(preserveIndex, questions.length - 1, current);
+    });
+  };
 
   const handleSubmit = async () => {
-    setError('');
+    if (!activeQuestion) {
+      return;
+    }
+
+    const answer = (answers[activeQuestion.id] ?? '').trim();
+    if (!answer) {
+      setPageTip('请先完成当前题，再提交答案。');
+      setPageTipTone('warning');
+      return;
+    }
+
     setSubmitting(true);
+    setPageTip('');
+    setPageTipTone('info');
 
     try {
-      const submittedAnswers = pendingQuestions
-        .map((item) => ({
-          questionId: item.id,
-          answer: answers[item.id] ?? '',
-        }))
-        .filter((item) => item.answer.trim() !== '');
+      const response = await exerciseService.submit({
+        answers: [{ questionId: activeQuestion.id, answer }],
+        context: {
+          page: 'student-practice-single-question',
+        },
+      });
 
-      if (submittedAnswers.length === 0) {
-        setError('请先完成至少 1 道题，再提交答案。');
-        return;
+      setResult(response);
+      const currentDetail = response.details?.find((item) => item.questionId === activeQuestion.id) ?? null;
+      const nextStatus = currentDetail?.isCorrect ? 'CORRECT' : 'WRONG';
+
+      setStatusMap((current) => {
+        const next = new Map(current);
+        next.set(activeQuestion.id, nextStatus);
+        return next;
+      });
+
+      if (currentDetail?.isCorrect) {
+        setPageTip('这道题答对了。你可以继续下一题，也可以留在这里再检查一遍。');
+        setPageTipTone('success');
+      } else {
+        setPageTip('这道题答错了。系统已记录为错题，请先看讲解，再决定是否重新作答。');
+        setPageTipTone('warning');
       }
 
-      const payload = {
-        answers: submittedAnswers,
-        context: {
-          page: 'student-practice',
-          selectedGrade: filters.grade,
-        },
-      };
-      const response = await exerciseService.submit(payload);
-      setResult(response);
-
-      const longestStreak = getLongestCorrectStreak(response.details);
-      const comboBonus =
-        longestStreak >= 2 ? Math.min(3, longestStreak - 1) : 0;
-      const stars =
-        response.correctCount +
-        comboBonus +
-        (response.wrongCount === 0 && response.totalCount > 0 ? 2 : 0);
-      const rewardState = awardStars(currentUser?.id, stars);
-      setEarnedStars(stars);
-      setTotalStars(rewardState.totalStars);
+      await refreshReportState(activeIndex);
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : '提交练习失败，请稍后重试。',
-      );
+      setError(submitError instanceof Error ? submitError.message : '练习提交失败，请稍后再试。');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const requestAiSupport = async (
-    question: QuestionItem,
-    mode: 'REVIEW_QUESTION' | 'GIVE_HINT' | 'REPHRASE_EXPLANATION',
-    panelTitle: string,
-  ) => {
-    setAiLoadingQuestionId(question.id);
-    setAiErrors((current) => ({
-      ...current,
-      [question.id]: '',
-    }));
-    setAiPanelTitle((current) => ({
-      ...current,
-      [question.id]: panelTitle,
-    }));
+  const requestAiSupport = async (mode: AiMode, title: string) => {
+    if (!activeQuestion) {
+      return;
+    }
+
+    setAiLoading(true);
+    setAiTitle(title);
+    setAiResult(null);
 
     try {
-      const composedQuestion = question.options?.length
-        ? `${question.stem}\n${question.options
-            .map((option) => `${option.label}. ${option.value}`)
-            .join('\n')}`
-        : question.stem;
-
       const response = await aiService.askQuestion({
-        originalQuestion: composedQuestion,
-        grade: question.grade,
-        questionType: question.questionType,
-        options:
-          question.options?.map((option) => `${option.label}. ${option.value}`) ?? [],
+        originalQuestion: buildQuestionText(activeQuestion),
+        grade: activeQuestion.grade,
+        questionType: activeQuestion.questionType,
+        options: activeQuestion.options?.map((item) => `${item.label}. ${item.value}`) ?? [],
         context: {
           mode,
-          source: 'practice-embedded-ai',
-          title: question.title,
-          studentAnswer: answers[question.id] ?? '',
+          source: 'practice-main-panel',
+          studentAnswer: answers[activeQuestion.id] ?? '',
         },
       });
 
-      setAiResults((current) => ({
-        ...current,
-        [question.id]: response,
-      }));
+      setAiResult(response);
     } catch (requestError) {
-      setAiErrors((current) => ({
-        ...current,
-        [question.id]:
-          requestError instanceof Error
-            ? requestError.message
-            : 'AI 辅助暂时不可用，请稍后再试。',
-      }));
+      setError(requestError instanceof Error ? requestError.message : 'AI 辅助暂时不可用，请稍后再试。');
     } finally {
-      setAiLoadingQuestionId(null);
+      setAiLoading(false);
     }
   };
 
-  const handleSelectStage = (stage: {
-    id: string;
-    title: string;
-    difficulty?: number;
-  }) => {
-    setSelectedStageId(stage.id);
-    setFilters((prev) => ({
-      ...prev,
-      difficulty: stage.difficulty,
-    }));
-    setMapTip(`已进入“${stage.title}”，下面会切换到对应难度的题目。`);
-    window.setTimeout(() => {
-      questionSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 120);
-  };
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="练习闯关" description="优先完成当前题目，再决定是否需要 AI 辅助。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
 
-  const grade = filters.grade ?? currentUser?.grade ?? currentUser?.student?.grade ?? 3;
-  const completionRate =
-    pendingQuestions.length + masteredQuestions.length === 0
-      ? 0
-      : Math.round(
-          (masteredQuestions.length /
-            (pendingQuestions.length + masteredQuestions.length)) *
-            100,
-        );
-  const activeQuestion = pendingQuestions[0] ?? null;
-  const answeredCount = pendingQuestions.filter(
-    (item) => (answers[item.id] ?? '').trim() !== '',
-  ).length;
+  if (error && !loading && questions.length === 0) {
+    const errorKind = getPlatformErrorKind(error);
+    return (
+      <PageShell title="练习闯关" description="优先完成当前题目，再决定是否需要 AI 辅助。">
+        {errorKind === 'session_expired' ? (
+          <SessionExpiredState />
+        ) : errorKind === 'network_error' ? (
+          <NetworkErrorState />
+        ) : (
+          <PageLoadErrorState />
+        )}
+      </PageShell>
+    );
+  }
+
+  if (!loading && questions.length === 0) {
+    return (
+      <PageShell title="练习闯关" description="优先完成当前题目，再决定是否需要 AI 辅助。">
+        <NoLearningDataState />
+      </PageShell>
+    );
+  }
 
   return (
-    <PageShell
-      title="智能练习"
-      description="这里是你的数学闯关中心。先完成今天还没掌握的题，再用 AI 帮助自己把难点一题题讲明白。"
-    >
-      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <article className="math-card rounded-[2rem] px-6 py-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="math-chip math-chip-primary">数学地图</span>
-                <span className="math-chip math-chip-success">当前年级 {grade}</span>
-                <span className="math-chip math-chip-warm">练习聚焦模式</span>
-              </div>
-              <h2 className="font-math-display text-3xl font-extrabold text-ink">
-                今天先把还没掌握的题做会
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                练习页不只是题目列表。这里会优先展示你还没完全掌握的题，并给你地图闯关、即时判题和 AI 辅助。
-              </p>
-            </div>
-            <div className="rounded-[1.8rem] bg-[linear-gradient(180deg,#F8FBFF,#EEF4FF)] p-3">
-              <EinsteinMentor size="md" mood="celebrate" badge="闯关" />
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-[1.4rem] bg-[#EEF1FF] px-4 py-5">
-              <p className="text-sm font-semibold text-slate-500">待挑战题目</p>
-              <p className="mt-2 font-math-display text-3xl font-extrabold text-brand-700">
-                {pendingQuestions.length}
-              </p>
-            </article>
-            <article className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-5">
-              <p className="text-sm font-semibold text-slate-500">已掌握题目</p>
-              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#2E7D32]">
-                {masteredQuestions.length}
-              </p>
-            </article>
-            <article className="rounded-[1.4rem] bg-[#FFF3E0] px-4 py-5">
-              <p className="text-sm font-semibold text-slate-500">掌握进度</p>
-              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#EF6C00]">
-                {completionRate}%
-              </p>
-            </article>
-            <article className="rounded-[1.4rem] bg-[#F3E8FF] px-4 py-5">
-              <p className="text-sm font-semibold text-slate-500">AI 辅助</p>
-              <p className="mt-2 font-math-display text-3xl font-extrabold text-[#8E24AA]">
-                3种
-              </p>
-            </article>
-          </div>
-        </article>
-
-        <article className="math-card rounded-[2rem] px-6 py-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">闯关奖励</p>
-              <h2 className="font-math-display text-3xl font-extrabold text-ink">答对就能拿星星</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMapOpen((current) => !current)}
-              className="math-button-secondary rounded-[1rem] px-4 py-2 text-sm font-extrabold text-slate-700"
-            >
-              {mapOpen ? '收起地图' : '打开地图'}
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[1.4rem] bg-[#FFF8E1] px-4 py-4">
-              <p className="text-2xl">★</p>
-              <p className="mt-2 text-sm font-semibold text-ink">每答对 1 题</p>
-              <p className="mt-1 text-sm text-[#EF6C00]">+1 星星</p>
-            </div>
-            <div className="rounded-[1.4rem] bg-[#EEF1FF] px-4 py-4">
-              <p className="text-2xl">✦</p>
-              <p className="mt-2 text-sm font-semibold text-ink">连对奖励</p>
-              <p className="mt-1 text-sm text-brand-700">连续答对可额外加星</p>
-            </div>
-            <div className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-4">
-              <p className="text-2xl">✓</p>
-              <p className="mt-2 text-sm font-semibold text-ink">全对加成</p>
-              <p className="mt-1 text-sm text-[#2E7D32]">一轮全对额外奖励</p>
-            </div>
-          </div>
-
-          {result ? (
-            <div className="mt-5 rounded-[1.5rem] border border-brand-100 bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(238,241,255,0.95),rgba(232,245,233,0.92))] px-5 py-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="math-chip math-chip-primary">本轮完成</span>
-                <span className="math-chip math-chip-success">答对 {result.correctCount}</span>
-                <span className="math-chip math-chip-warm">答错 {result.wrongCount}</span>
-                <span className="math-chip math-chip-violet">+{earnedStars} 星</span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                当前正确率 {result.accuracyRate}% ，累计星星 {totalStars}。做对的题会进入“已掌握”，做错的题会自动沉淀到错题本。
-              </p>
-            </div>
-          ) : null}
-        </article>
-      </section>
-
-      {mapOpen ? (
-        <section className="mt-6 space-y-4">
-          {mapTip ? (
-            <div className="rounded-[1.2rem] bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
-              {mapTip}
-            </div>
-          ) : null}
-          <AdventureMapBoard
-            grade={grade}
-            pendingCount={pendingQuestions.length}
-            masteredCount={masteredQuestions.length}
-            selectedStageId={selectedStageId}
-            onSelectStage={handleSelectStage}
-          />
-        </section>
-      ) : null}
-
-      {activeQuestion ? (
-        <section className="mt-6 math-card rounded-[2rem] px-6 py-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="math-chip math-chip-primary">当前闯关焦点</span>
-                <span className="math-chip math-chip-success">
-                  第 1 / {pendingQuestions.length} 题
-                </span>
-              </div>
-              <h2 className="font-math-display text-3xl font-extrabold text-ink">
-                先把这道题做明白
-              </h2>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                当前优先题是“{activeQuestion.title}”。先自己想一想，再用 AI 的审题、提示一步或换种讲法来帮忙。
-              </p>
-            </div>
-
-            <div className="min-w-[220px] rounded-[1.5rem] bg-[linear-gradient(180deg,#EEF4FF,#FFFFFF)] px-5 py-4">
-              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-brand-700">
-                <span>本轮进度</span>
-                <span>{answeredCount}/{pendingQuestions.length}</span>
-              </div>
-              <div className="h-3 rounded-full bg-brand-100">
-                <div
-                  className="h-3 rounded-full bg-brand-700 transition-all"
-                  style={{
-                    width: `${
-                      pendingQuestions.length === 0
-                        ? 0
-                        : Math.max(
-                            6,
-                            Math.round((answeredCount / pendingQuestions.length) * 100),
-                          )
-                    }%`,
-                  }}
-                />
-              </div>
-              <p className="mt-3 text-sm font-semibold text-slate-600">
-                已填写 {answeredCount} 题，先完成当前这一轮再提交。
-              </p>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section
-        ref={questionSectionRef}
-        className="mt-6 rounded-[2rem] bg-white/92 px-6 py-7 shadow-card"
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">做题区</p>
-            <h2 className="font-math-display text-3xl font-extrabold text-ink">当前练习任务</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              题目区会优先聚焦正在练的内容。每道题都能直接获得 AI 审题、提示一步和换种讲法。
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <select
-              value={grade}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  grade: Number(event.target.value),
-                }))
-              }
-              className="math-input max-w-[8rem] py-2"
-            >
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <option key={item} value={item}>
-                  {item} 年级
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.difficulty ?? ''}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  difficulty: event.target.value ? Number(event.target.value) : undefined,
-                }))
-              }
-              className="math-input max-w-[9rem] py-2"
-            >
-              <option value="">全部难度</option>
-              {[1, 2, 3, 4, 5].map((difficulty) => (
-                <option key={difficulty} value={difficulty}>
-                  难度 {difficulty}
-                </option>
-              ))}
-            </select>
-          </div>
+    <PageShell title="练习闯关" description="题目状态会按答对、答错和待做真实保留，刷新后不会丢失。">
+      {pageTip ? (
+        <div
+          className={`mb-4 rounded-[1.2rem] px-4 py-3 text-sm font-semibold shadow-sm ${
+            pageTipTone === 'success'
+              ? 'bg-emerald-50 text-emerald-700'
+              : pageTipTone === 'warning'
+                ? 'bg-orange-50 text-orange-700'
+                : 'bg-brand-50 text-brand-700'
+          }`}
+        >
+          {pageTip}
         </div>
+      ) : null}
 
-        {error ? (
-          <div className="mt-5 rounded-[1.2rem] bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {error}
-          </div>
-        ) : null}
-
-        {pendingQuestions.length > 0 ? (
-          <div className="mt-5 rounded-[1.4rem] bg-[#EEF1FF] px-4 py-4">
+      <section className="portal-board px-5 py-5 sm:px-6">
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <article className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-bold text-brand-700">本轮题目进度</p>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-brand-700">
-                1 / {pendingQuestions.length}
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              只统计你已经填写答案的题，空白题不会拉低本轮正确率。
-            </p>
-          </div>
-        ) : null}
-
-        <div className="mt-6 space-y-5">
-          {loading ? <p className="text-sm text-slate-500">题目加载中...</p> : null}
-
-          {!loading && pendingQuestions.length === 0 ? (
-            <div className="rounded-[1.6rem] border border-dashed border-brand-200 bg-[#F8FBFF] px-6 py-10 text-center">
-              <p className="font-math-display text-2xl font-extrabold text-ink">这一页暂时没有新题啦</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                {questions.length === 0
-                  ? `你现在选择的是 ${grade} 年级。请先导入这个年级的题目。`
-                  : '这个年级的题你最近都做对了，可以先去错题本复习，或者切换其他难度继续闯关。'}
-              </p>
-            </div>
-          ) : null}
-
-          {pendingQuestions.map((item, index) => {
-            const detail = resultDetailMap.get(item.id);
-            const isCurrentFocus = index === 0;
-
-            return (
-              <article
-                key={item.id}
-                className={`rounded-[1.9rem] border p-5 shadow-sm ${
-                  item.id === focusQuestionId || isCurrentFocus
-                    ? 'border-brand-300 bg-[linear-gradient(135deg,rgba(238,241,255,0.98),rgba(255,255,255,0.96))] shadow-[0_20px_36px_rgba(63,81,181,0.14)]'
-                    : 'border-slate-100 bg-[linear-gradient(135deg,rgba(248,250,252,0.94),rgba(255,255,255,0.94))]'
-                }`}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-black text-brand-700">
-                    第 {index + 1} 题
-                  </span>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                    {item.grade} 年级
-                  </span>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                    难度 {item.difficulty}
-                  </span>
-                  {isCurrentFocus ? (
-                    <span className="rounded-full bg-[#FFF8E1] px-3 py-1 text-xs font-black text-[#B26A00]">
-                      当前主做题
-                    </span>
-                  ) : null}
-                  {detail ? (
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${
-                        detail.isCorrect
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {detail.isCorrect ? '这题做对了' : '这题还要再练'}
-                    </span>
-                  ) : null}
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="math-chip math-chip-primary">当前练习</span>
+                  <span className="math-chip math-chip-success">进度 {progressLabel}</span>
+                  {activeStatus === 'CORRECT' ? <span className="math-chip math-chip-success">已答对</span> : null}
+                  {activeStatus === 'WRONG' ? <span className="math-chip math-chip-warm">已答错，待订正</span> : null}
                 </div>
+                <h2 className="font-math-display text-3xl font-extrabold text-ink">
+                  {activeQuestion?.title ?? '开始练习'}
+                </h2>
+              </div>
 
-                <h3 className="mt-4 font-math-display text-2xl font-extrabold text-ink">
-                  {item.title}
-                </h3>
-                <div className="mt-4 rounded-[1.4rem] bg-white/86 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">题目阅读区</p>
-                  <p className="mt-3 text-base leading-8 text-slate-700">{item.stem}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-[1.2rem] bg-white px-4 py-3 text-center shadow-sm">
+                  <p className="text-xs font-bold text-slate-500">已作答</p>
+                  <p className="mt-1 text-2xl font-extrabold text-emerald-600">{answeredCount}</p>
                 </div>
+                <div className="rounded-[1.2rem] bg-white px-4 py-3 text-center shadow-sm">
+                  <p className="text-xs font-bold text-slate-500">当前正确率</p>
+                  <p className="mt-1 text-2xl font-extrabold text-brand-700">{accuracyRate}%</p>
+                </div>
+              </div>
+            </div>
 
-                {item.options?.length ? (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {item.options.map((option) => (
+            <div
+              key={activeQuestion?.id ?? 'empty-question'}
+              className={`mt-5 rounded-[1.6rem] border bg-white/95 px-5 py-5 ${
+                activeStatus === 'WRONG'
+                  ? 'border-orange-200'
+                  : activeStatus === 'CORRECT'
+                    ? 'border-emerald-200'
+                    : 'border-brand-100'
+              }`}
+            >
+              <p className="text-sm leading-8 text-slate-700">{activeQuestion?.stem}</p>
+
+              {activeQuestion?.options?.length ? (
+                <div className="mt-5 grid gap-3">
+                  {activeQuestion.options.map((option) => {
+                    const selected = answers[activeQuestion.id] === option.label;
+                    return (
                       <button
                         key={option.label}
                         type="button"
-                        onClick={() =>
-                          setAnswers((prev) => ({ ...prev, [item.id]: option.label }))
-                        }
-                        className={`rounded-[1.2rem] border px-4 py-3 text-left text-sm font-semibold transition ${
-                          answers[item.id] === option.label
-                            ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-[0_12px_20px_rgba(63,81,181,0.12)]'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-brand-200'
+                        onClick={() => handleAnswerChange(activeQuestion.id, option.label)}
+                        className={`rounded-[1rem] border px-4 py-3 text-left text-sm font-semibold transition ${
+                          selected
+                            ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-[0_8px_18px_rgba(63,81,181,0.12)]'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-brand-200 hover:bg-brand-50/40'
                         }`}
                       >
                         {option.label}. {option.value}
                       </button>
-                    ))}
-                  </div>
-                ) : (
-                  <textarea
-                    value={answers[item.id] ?? ''}
-                    onChange={(event) =>
-                      setAnswers((prev) => ({
-                        ...prev,
-                        [item.id]: event.target.value,
-                      }))
-                    }
-                    rows={3}
-                    className="math-input mt-5"
-                    placeholder="请输入你的答案"
-                  />
-                )}
-
-                <div className="mt-5 rounded-[1.3rem] bg-[linear-gradient(180deg,#EEF4FF,#FFFFFF)] px-4 py-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-sm font-black uppercase tracking-[0.16em] text-brand-700">
-                      AI 辅助工具
-                    </p>
-                    <span className="text-xs font-semibold text-slate-500">
-                      卡住时再点，会更有帮助
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => void requestAiSupport(item, 'REVIEW_QUESTION', 'AI 审题帮助')}
-                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-brand-700"
-                  >
-                    AI 审题
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void requestAiSupport(item, 'GIVE_HINT', '提示一步')}
-                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-[#2E7D32]"
-                  >
-                    提示一步
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void requestAiSupport(item, 'REPHRASE_EXPLANATION', '换种讲法')
-                    }
-                    className="math-button-secondary rounded-full px-4 py-2 text-sm font-extrabold text-[#1565C0]"
-                  >
-                    换种讲法
-                  </button>
-                  </div>
+                    );
+                  })}
                 </div>
+              ) : activeQuestion ? (
+                <textarea
+                  value={answers[activeQuestion.id] ?? ''}
+                  onChange={(event) => handleAnswerChange(activeQuestion.id, event.target.value)}
+                  placeholder="请在这里填写你的答案"
+                  className="mt-5 min-h-32 w-full rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-brand-300"
+                />
+              ) : null}
 
-                {detail ? (
-                  <div
-                    className={`mt-5 rounded-[1.4rem] border px-4 py-4 ${
-                      detail.isCorrect
-                        ? 'border-emerald-100 bg-emerald-50/80'
-                        : 'border-red-100 bg-red-50/80'
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="math-button-primary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                >
+                  {submitting ? '正在提交' : activeStatus === 'UNANSWERED' ? '提交当前题' : '重新提交这道题'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectQuestion(Math.max(0, activeIndex - 1))}
+                  disabled={activeIndex === 0}
+                  className="math-button-secondary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-slate-700 disabled:opacity-50"
+                >
+                  上一题
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectQuestion(Math.min(questions.length - 1, activeIndex + 1))}
+                  disabled={activeIndex >= questions.length - 1}
+                  className="math-button-secondary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-slate-700 disabled:opacity-50"
+                >
+                  下一题
+                </button>
+              </div>
+
+              {activeResult ? (
+                <div
+                  className={`mt-5 rounded-[1.4rem] border px-4 py-4 ${
+                    activeResult.isCorrect
+                      ? 'border-emerald-200 bg-emerald-50/80'
+                      : 'border-orange-200 bg-orange-50/85'
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-black ${
+                      activeResult.isCorrect ? 'text-emerald-700' : 'text-orange-700'
                     }`}
                   >
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
-                        <p className="text-xs font-semibold text-slate-400">你的答案</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {detail.studentAnswer || '未填写'}
-                        </p>
-                      </div>
-                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
-                        <p className="text-xs font-semibold text-slate-400">正确答案</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {detail.correctAnswer || '暂无'}
-                        </p>
-                      </div>
-                      <div className="rounded-[1rem] bg-white/92 px-4 py-3">
-                        <p className="text-xs font-semibold text-slate-400">判题结果</p>
-                        <p
-                          className={`mt-1 text-sm font-extrabold ${
-                            detail.isCorrect ? 'text-emerald-700' : 'text-red-700'
-                          }`}
-                        >
-                          {detail.isCorrect ? '你答对了' : '这题需要再巩固'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {detail.feedback ? (
-                      <div className="mt-3 rounded-[1rem] bg-white/92 px-4 py-3 text-sm leading-7 text-slate-600">
-                        <p className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                          讲解反馈
-                        </p>
-                        {detail.feedback}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <CompactAiResult
-                  title={aiPanelTitle[item.id] ?? 'AI 辅助'}
-                  result={aiResults[item.id] ?? null}
-                  loading={aiLoadingQuestionId === item.id}
-                  error={aiErrors[item.id]}
-                />
-              </article>
-            );
-          })}
-        </div>
-
-        {masteredQuestions.length > 0 ? (
-          <section className="mt-8">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="font-math-display text-2xl font-extrabold text-ink">已掌握题目</h2>
-              <span className="math-chip math-chip-success">{masteredQuestions.length} 题</span>
+                    {activeResult.isCorrect ? '这道题答对了' : '这道题答错了，需要再看一遍'}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">
+                    正确答案：{activeResult.correctAnswer || '暂未提供'}
+                  </p>
+                  {activeResult.feedback ? (
+                    <p className="mt-2 text-sm leading-7 text-slate-600">{activeResult.feedback}</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-            <div className="space-y-3">
-              {masteredQuestions.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-[1.5rem] border border-slate-100 bg-[linear-gradient(135deg,rgba(232,245,233,0.86),rgba(255,255,255,0.88))] p-5 shadow-sm"
+          </article>
+
+          <div className="grid gap-4">
+            <EinsteinTipCard
+              message={
+                activeStatus === 'WRONG'
+                  ? '这道题已经记录为错题。建议先看讲解，再重新作答，不会自动跳到下一题。'
+                  : activeStatus === 'CORRECT'
+                    ? '这道题已经答对了。你可以继续下一题，也可以在这里再检查一遍。'
+                    : '先独立完成当前题，再决定是否需要提示或 AI 讲解。'
+              }
+              tone={activeStatus === 'WRONG' ? 'blue' : 'yellow'}
+            />
+
+            <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+              <p className="text-sm font-black text-brand-700">AI 辅助</p>
+              <div className="mt-4 grid gap-3">
+                <button
+                  type="button"
+                  onClick={() => void requestAiSupport('GIVE_HINT', '提示一步')}
+                  className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-ink">{item.title}</h3>
-                    <span className="math-chip math-chip-success">已掌握</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.stem}</p>
-                </article>
-              ))}
+                  提示一步
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void requestAiSupport('REPHRASE_EXPLANATION', '换一种讲法')}
+                  className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+                >
+                  换一种讲法
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void requestAiSupport('REVIEW_QUESTION', '完整讲解')}
+                  className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+                >
+                  查看讲解
+                </button>
+              </div>
             </div>
-          </section>
-        ) : null}
 
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={submitting || pendingQuestions.length === 0}
-            className="math-button-primary rounded-[1.1rem] px-6 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {submitting ? '正在提交...' : '提交本轮答案'}
-          </button>
-          <p className="text-sm leading-6 text-slate-500">
-            提交后会得到即时正误反馈、正确答案和讲解提示，并自动把错题沉淀到错题本。
-          </p>
+            <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+              <p className="text-sm font-black text-brand-700">题目导航</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {questions.map((question, index) => {
+                  const questionStatus = statusMap.get(question.id) ?? 'UNANSWERED';
+                  const active = index === activeIndex;
+
+                  return (
+                    <button
+                      key={question.id}
+                      type="button"
+                      onClick={() => handleSelectQuestion(index)}
+                      aria-pressed={active}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition ${
+                        active
+                          ? questionStatus === 'WRONG'
+                            ? 'border-orange-300 bg-white text-orange-700 shadow-[0_10px_20px_rgba(249,115,22,0.14)] ring-2 ring-orange-200 ring-offset-2'
+                            : questionStatus === 'CORRECT'
+                              ? 'border-emerald-300 bg-white text-emerald-700 shadow-[0_10px_20px_rgba(16,185,129,0.14)] ring-2 ring-emerald-200 ring-offset-2'
+                              : 'border-brand-300 bg-white text-brand-700 shadow-[0_10px_20px_rgba(63,81,181,0.14)] ring-2 ring-brand-200 ring-offset-2'
+                          : questionStatus === 'WRONG'
+                            ? 'border-orange-200 bg-orange-50 text-orange-700 hover:border-orange-300'
+                            : questionStatus === 'CORRECT'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
+                              : 'border-slate-200 bg-slate-100 text-slate-600 hover:border-brand-200 hover:bg-brand-50/50'
+                      }`}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          questionStatus === 'WRONG'
+                            ? 'bg-orange-500'
+                            : questionStatus === 'CORRECT'
+                              ? 'bg-emerald-500'
+                              : 'bg-slate-400'
+                        }`}
+                      />
+                      <span>第{index + 1} 题</span>
+                      <span>
+                        {questionStatus === 'WRONG'
+                          ? '答错'
+                          : questionStatus === 'CORRECT'
+                            ? '答对'
+                            : '待做'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {aiResult ? <CompactAiResult title={aiTitle} result={aiResult} loading={aiLoading} error="" /> : null}
+
+            <Link
+              href="/student"
+              className="rounded-[1.2rem] border border-dashed border-brand-200 bg-white/70 px-4 py-3 text-center text-sm font-bold text-brand-700"
+            >
+              返回学习首页
+            </Link>
+          </div>
         </div>
       </section>
     </PageShell>

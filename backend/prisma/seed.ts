@@ -1,25 +1,30 @@
 import { ExerciseStatus, MasteryLevel, PrismaClient, QuestionType, Role } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+const STUDENT_PASSWORD = 'Study@123';
+const TEACHER_PASSWORD = 'Teach@123';
+const ADMIN_PASSWORD = 'Admin@123';
+
 async function upsertStudentUser() {
-  const passwordHash = await bcrypt.hash('123456', 10);
+  const passwordHash = await bcrypt.hash(STUDENT_PASSWORD, 10);
 
   const user = await prisma.user.upsert({
-    where: { username: 'student_demo' },
+    where: { username: 'student_grade3_01' },
     update: {
-      displayName: '演示学生',
+      displayName: '三年级学生',
       passwordHash,
       role: Role.STUDENT,
       isActive: true,
     },
     create: {
-      username: 'student_demo',
-      email: 'student_demo@example.com',
+      username: 'student_grade3_01',
+      email: 'student_grade3_01@einmath.cn',
       passwordHash,
       role: Role.STUDENT,
-      displayName: '演示学生',
+      displayName: '三年级学生',
     },
   });
 
@@ -48,22 +53,22 @@ async function upsertStudentUser() {
 }
 
 async function upsertTeacherUser() {
-  const passwordHash = await bcrypt.hash('123456', 10);
+  const passwordHash = await bcrypt.hash(TEACHER_PASSWORD, 10);
 
   const user = await prisma.user.upsert({
-    where: { username: 'teacher_demo' },
+    where: { username: 'teacher_math_01' },
     update: {
-      displayName: '演示老师',
+      displayName: '数学教师',
       passwordHash,
       role: Role.TEACHER,
       isActive: true,
     },
     create: {
-      username: 'teacher_demo',
-      email: 'teacher_demo@example.com',
+      username: 'teacher_math_01',
+      email: 'teacher_math_01@einmath.cn',
       passwordHash,
       role: Role.TEACHER,
-      displayName: '演示老师',
+      displayName: '数学教师',
     },
   });
 
@@ -84,22 +89,22 @@ async function upsertTeacherUser() {
 }
 
 async function upsertAdminUser() {
-  const passwordHash = await bcrypt.hash('123456', 10);
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
 
   await prisma.user.upsert({
-    where: { username: 'admin_demo' },
+    where: { username: 'admin_platform' },
     update: {
-      displayName: '演示管理员',
+      displayName: '平台管理员',
       passwordHash,
       role: Role.ADMIN,
       isActive: true,
     },
     create: {
-      username: 'admin_demo',
-      email: 'admin_demo@example.com',
+      username: 'admin_platform',
+      email: 'admin@einmath.cn',
       passwordHash,
       role: Role.ADMIN,
-      displayName: '演示管理员',
+      displayName: '平台管理员',
     },
   });
 }
@@ -144,10 +149,10 @@ async function upsertKnowledgePoints() {
 
 async function upsertQuestions(knowledgePointIds: { additionId: string; applicationId: string }) {
   const question1 = await prisma.question.upsert({
-    where: { id: 'demo-question-1' },
+    where: { id: 'seed-question-1' },
     update: {
       title: '三年级加法应用题',
-      stem: '小明有 12 支铅笔，又买了 8 支，现在一共有多少支？',
+      stem: '小明原来有 12 支铅笔，又买了 8 支，现在一共有多少支？',
       questionType: QuestionType.SHORT_ANSWER,
       grade: 3,
       difficulty: 1,
@@ -157,9 +162,9 @@ async function upsertQuestions(knowledgePointIds: { additionId: string; applicat
       source: 'seed',
     },
     create: {
-      id: 'demo-question-1',
+      id: 'seed-question-1',
       title: '三年级加法应用题',
-      stem: '小明有 12 支铅笔，又买了 8 支，现在一共有多少支？',
+      stem: '小明原来有 12 支铅笔，又买了 8 支，现在一共有多少支？',
       questionType: QuestionType.SHORT_ANSWER,
       grade: 3,
       difficulty: 1,
@@ -171,7 +176,7 @@ async function upsertQuestions(knowledgePointIds: { additionId: string; applicat
   });
 
   const question2 = await prisma.question.upsert({
-    where: { id: 'demo-question-2' },
+    where: { id: 'seed-question-2' },
     update: {
       title: '三年级选择题：哪个答案正确？',
       stem: '计算 36 + 14，正确答案是哪一个？',
@@ -190,7 +195,7 @@ async function upsertQuestions(knowledgePointIds: { additionId: string; applicat
       source: 'seed',
     },
     create: {
-      id: 'demo-question-2',
+      id: 'seed-question-2',
       title: '三年级选择题：哪个答案正确？',
       stem: '计算 36 + 14，正确答案是哪一个？',
       questionType: QuestionType.SINGLE_CHOICE,
@@ -257,13 +262,18 @@ async function upsertQuestions(knowledgePointIds: { additionId: string; applicat
   return { question1, question2 };
 }
 
-async function upsertLearningData(studentUserId: string, studentId: string, questionIds: { question1Id: string; question2Id: string }, knowledgePointId: string) {
+async function upsertLearningData(
+  studentUserId: string,
+  studentId: string,
+  questionIds: { question1Id: string; question2Id: string },
+  knowledgePointId: string,
+) {
   let exerciseRecord = await prisma.exerciseRecord.findFirst({
     where: {
       userId: studentUserId,
       summary: {
         path: ['seedTag'],
-        equals: 'demo-exercise-1',
+        equals: 'platform-seed-exercise',
       },
     },
   });
@@ -280,7 +290,7 @@ async function upsertLearningData(studentUserId: string, studentId: string, ques
         accuracyRate: 50,
         submittedAt: new Date(),
         summary: {
-          seedTag: 'demo-exercise-1',
+          seedTag: 'platform-seed-exercise',
           wrongCount: 1,
         },
       },
@@ -385,12 +395,12 @@ async function upsertLearningData(studentUserId: string, studentId: string, ques
         modelName: 'seed-demo',
         parsedResult: {
           originalQuestion: '35 + 27 等于多少？请一步一步讲解。',
-          steps: ['先算个位 5 + 7 = 12。', '写 2 进 1。', '再算十位 3 + 2 + 1 = 6。'],
+          steps: ['先算个位 5 + 7 = 12。', '写 2，向十位进 1。', '再算十位 3 + 2 + 1 = 6。'],
           finalAnswer: '62',
           knowledgePoints: ['万以内加法'],
           difficulty: 'EASY',
-          riskNotice: '这是演示问答记录。',
-          similarQuestions: ['相似题占位：试着计算 46 + 18。'],
+          riskNotice: '这是平台初始化生成的学习记录。',
+          similarQuestions: ['试着计算 46 + 18。'],
         },
       },
     });
@@ -419,9 +429,9 @@ async function main() {
   );
 
   console.log('Seed completed.');
-  console.log('Student: S20260001 / 123456');
-  console.log('Teacher: T20260001 / 123456');
-  console.log('Admin: admin_demo / 123456');
+  console.log(`Student: S20260001 / ${STUDENT_PASSWORD}`);
+  console.log(`Teacher: T20260001 / ${TEACHER_PASSWORD}`);
+  console.log(`Admin: admin_platform / ${ADMIN_PASSWORD}`);
 }
 
 main()

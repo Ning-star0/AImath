@@ -13,7 +13,7 @@
   --math-yellow: #ffeb3b;
   --math-slate: #607d8b;
   --page-bg: #f7f4ea;
-  --page-surface: rgba(255, 255, 255, 0.88);
+  --page-surface: #fffdf5;
   --page-border: rgba(63, 81, 181, 0.14);
   --text-main: #20304f;
   --text-soft: #5d6d89;
@@ -31,11 +31,11 @@ body {
   color: var(--text-main);
   font-family: var(--body-font);
   background:
-    radial-gradient(circle at 12% 14%, rgba(255, 235, 59, 0.26), transparent 18%),
-    radial-gradient(circle at 88% 12%, rgba(156, 39, 176, 0.12), transparent 18%),
-    radial-gradient(circle at 18% 84%, rgba(76, 175, 80, 0.16), transparent 18%),
-    radial-gradient(circle at 82% 86%, rgba(255, 152, 0, 0.14), transparent 16%),
-    linear-gradient(180deg, #dfe8ff 0%, #eef5ff 26%, #f8fbff 52%, #fffdf4 76%, #fff7df 100%);
+    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.72), transparent 14%),
+    radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.68), transparent 14%),
+    radial-gradient(circle at 18% 84%, rgba(139, 195, 74, 0.18), transparent 18%),
+    radial-gradient(circle at 82% 86%, rgba(255, 193, 7, 0.18), transparent 16%),
+    linear-gradient(180deg, #7fddff 0%, #bdf2ff 24%, #eafcff 54%, #fff9dc 76%, #d9f48d 100%);
   overflow-x: hidden;
 }
 
@@ -50,18 +50,22 @@ body::after {
 
 body::before {
   background-image:
-    linear-gradient(rgba(63, 81, 181, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(63, 81, 181, 0.04) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.18));
+    radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+    radial-gradient(circle at 23% 20%, rgba(255, 255, 255, 0.92) 0 16%, transparent 17%),
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+    radial-gradient(circle at 70% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%),
+    radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.9) 0 16%, transparent 17%),
+    radial-gradient(circle at 85% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%);
+  background-size: 100% 100%;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.08));
 }
 
 body::after {
   background:
-    radial-gradient(circle at 8% 24%, rgba(255, 255, 255, 0.92), transparent 11%),
-    radial-gradient(circle at 92% 18%, rgba(255, 255, 255, 0.82), transparent 11%),
-    radial-gradient(circle at 20% 88%, rgba(255, 255, 255, 0.76), transparent 10%),
-    radial-gradient(circle at 84% 76%, rgba(255, 255, 255, 0.7), transparent 10%);
+    radial-gradient(circle at 12% 92%, rgba(139, 195, 74, 0.44), transparent 14%),
+    radial-gradient(circle at 18% 90%, rgba(205, 255, 140, 0.4), transparent 12%),
+    radial-gradient(circle at 88% 92%, rgba(255, 193, 7, 0.26), transparent 14%),
+    radial-gradient(circle at 82% 90%, rgba(139, 195, 74, 0.24), transparent 12%);
 }
 
 * {
@@ -99,12 +103,11 @@ a {
 }
 
 .math-card {
-  border: 1px solid var(--page-border);
-  background: var(--page-surface);
+  border: 3px solid rgba(255, 193, 7, 0.42);
+  background: #fffdf5;
   box-shadow:
-    0 22px 45px rgba(63, 81, 181, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
+    0 18px 36px rgba(63, 81, 181, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .math-panel {
@@ -167,17 +170,17 @@ a {
 .math-button-primary {
   border: 0;
   border-radius: 1.2rem;
-  background: linear-gradient(180deg, #4d61d2 0%, #3f51b5 52%, #2e419e 100%);
+  background: linear-gradient(180deg, #28a745 0%, #18903a 52%, #0f7b2d 100%);
   box-shadow:
-    0 16px 32px rgba(63, 81, 181, 0.28),
+    0 16px 32px rgba(24, 144, 58, 0.28),
     inset 0 2px 0 rgba(255, 255, 255, 0.24);
 }
 
 .math-button-secondary {
-  border: 1px solid rgba(63, 81, 181, 0.14);
+  border: 2px solid rgba(255, 193, 7, 0.38);
   border-radius: 1.2rem;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 12px 24px rgba(63, 81, 181, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 24px rgba(255, 193, 7, 0.14);
 }
 
 .math-button-primary:hover,
@@ -256,15 +259,15 @@ a {
 .math-stat-card {
   border-radius: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   box-shadow: 0 14px 28px rgba(63, 81, 181, 0.08);
 }
 
 .math-role-panel {
   border-radius: 1.6rem;
-  border: 1px solid rgba(63, 81, 181, 0.12);
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.92));
-  box-shadow: 0 16px 32px rgba(63, 81, 181, 0.08);
+  border: 2px solid rgba(255, 193, 7, 0.28);
+  background: linear-gradient(180deg, #fffdf5, #ffffff);
+  box-shadow: 0 16px 32px rgba(255, 193, 7, 0.12);
 }
 
 .math-progress-track {
@@ -276,5 +279,37 @@ a {
 .math-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4d61d2 0%, #3f51b5 58%, #4caf50 100%);
+  background: linear-gradient(90deg, #ffca28 0%, #ff9800 36%, #4caf50 100%);
+}
+
+.storybook-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+.storybook-scene::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 8% 90%, rgba(139, 195, 74, 0.35), transparent 12%),
+    radial-gradient(circle at 15% 94%, rgba(255, 224, 130, 0.32), transparent 10%),
+    radial-gradient(circle at 88% 90%, rgba(139, 195, 74, 0.32), transparent 14%),
+    radial-gradient(circle at 95% 94%, rgba(255, 183, 77, 0.32), transparent 10%);
+  pointer-events: none;
+}
+
+.portal-board {
+  border: 4px solid rgba(255, 193, 7, 0.52);
+  border-radius: 2.3rem;
+  background: linear-gradient(180deg, #fffbf0, #ffffff);
+  box-shadow:
+    0 26px 52px rgba(63, 81, 181, 0.14),
+    inset 0 2px 0 rgba(255, 255, 255, 0.84);
+}
+
+.cloud-badge {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 22px rgba(63, 81, 181, 0.12);
 }

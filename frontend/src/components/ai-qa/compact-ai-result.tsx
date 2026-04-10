@@ -29,13 +29,13 @@ export function CompactAiResult({
     <div className="mt-4 rounded-2xl border border-brand-100 bg-white/95 p-4">
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-          AI 老师
+          AI 导师
         </span>
         <h4 className="text-sm font-semibold text-ink">{title}</h4>
       </div>
 
       {loading ? (
-        <p className="mt-3 text-sm text-slate-500">AI 老师正在想一想怎么讲更清楚...</p>
+        <p className="mt-3 text-sm text-slate-500">AI 导师正在整理更清晰的讲解内容...</p>
       ) : null}
 
       {error ? (
@@ -46,40 +46,30 @@ export function CompactAiResult({
 
       {result ? (
         <div className="mt-4 space-y-4">
-          {variant === 'summary' ? (
-            <div className="space-y-2">
-              {result.steps.map((step, index) => (
-                <div
-                  key={`${title}-${index}-${step}`}
-                  className="flex gap-3 rounded-[1.5rem] bg-brand-50/70 px-4 py-3"
-                >
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white text-sm shadow-sm ring-1 ring-brand-100">
-                    {index === 0 ? '🌟' : index === 1 ? '📘' : index === 2 ? '💡' : '✨'}
-                  </div>
-                  <p className="text-sm leading-7 text-slate-700">{step}</p>
+          <div className="space-y-2">
+            {result.steps.map((step, index) => (
+              <div
+                key={`${title}-${index}-${step}`}
+                className="flex gap-3 rounded-[1.5rem] bg-brand-50/70 px-4 py-3"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white text-xs font-bold text-brand-700 shadow-sm ring-1 ring-brand-100">
+                  {variant === 'summary'
+                    ? index === 0
+                      ? '看'
+                      : index === 1
+                        ? '想'
+                        : index === 2
+                          ? '练'
+                          : '记'
+                    : buildStepBadge(index)}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {result.steps.map((step, index) => (
-                <div
-                  key={`${title}-${index}-${step}`}
-                  className="flex gap-3 rounded-[1.5rem] bg-brand-50/70 px-4 py-3"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-white text-xs font-bold text-brand-700 shadow-sm ring-1 ring-brand-100">
-                    {buildStepBadge(index)}
-                  </div>
-                  <p className="text-sm leading-7 text-slate-700">{step}</p>
-                </div>
-              ))}
-            </div>
-          )}
+                <p className="text-sm leading-7 text-slate-700">{step}</p>
+              </div>
+            ))}
+          </div>
 
           <div className="rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 to-emerald-50 px-4 py-4">
-            <p className="text-xs text-brand-800">
-              {variant === 'summary' ? '老师想对你说' : '这一题可以先记住'}
-            </p>
+            <p className="text-xs text-brand-800">{variant === 'summary' ? '学习总结' : '关键结论'}</p>
             <p className="mt-2 text-sm font-medium leading-7 text-brand-700">
               {result.finalAnswer}
             </p>

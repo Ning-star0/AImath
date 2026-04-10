@@ -109,7 +109,20 @@ export class ReportsService {
     ]);
 
     if (exerciseDetails.length === 0) {
-      return this.buildDemoOverview();
+      return {
+        totalQuestions: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        accuracyRate: 0,
+        aiQaCount,
+        masteryByKnowledgePoint: [],
+        learningTrend: [],
+        questionDrilldowns: {
+          all: [],
+          correct: [],
+          wrong: [],
+        },
+      };
     }
 
     const latestByQuestion = this.buildLatestQuestionMap(exerciseDetails);

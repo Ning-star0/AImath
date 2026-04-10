@@ -18,18 +18,14 @@ export class WrongbookService {
   async list(user: AuthUser, query: QueryWrongbookDto) {
     const where: Prisma.WrongQuestionWhereInput = {
       userId: user.id,
-      ...(query.knowledgePointId
-        ? { knowledgePointId: query.knowledgePointId }
-        : {}),
+      ...(query.knowledgePointId ? { knowledgePointId: query.knowledgePointId } : {}),
       ...(query.unresolvedOnly ? { resolved: false } : {}),
       ...(query.includeArchived ? {} : { archivedAt: null }),
       ...((query.grade || query.questionType)
         ? {
             question: {
               ...(query.grade ? { grade: query.grade } : {}),
-              ...(query.questionType
-                ? { questionType: query.questionType as QuestionType }
-                : {}),
+              ...(query.questionType ? { questionType: query.questionType as QuestionType } : {}),
             },
           }
         : {}),
@@ -43,36 +39,6 @@ export class WrongbookService {
       },
       orderBy: [{ archivedAt: 'asc' }, { resolved: 'asc' }, { updatedAt: 'desc' }],
     });
-
-    if (wrongQuestions.length === 0) {
-      return {
-        list: [
-          {
-            id: 'demo-wrong-1',
-            questionId: 'demo-question-1',
-            questionTitle: '三年级加法应用题',
-            questionStem: '小明有 12 支铅笔，又买了 8 支，现在一共有多少支？',
-            wrongCount: 2,
-            resolved: false,
-            lastWrongAnswer: '18',
-            archivedAt: null,
-            questionType: 'SHORT_ANSWER',
-            grade: 3,
-            knowledgePoint: {
-              id: 'demo-kp-1',
-              name: '万以内加法',
-              code: 'GRADE3-ADD-001',
-            },
-            retryEntry: {
-              action: 'RETRY',
-              path: '/student/practice',
-              questionId: 'demo-question-1',
-            },
-          },
-        ],
-        total: 1,
-      };
-    }
 
     return {
       list: wrongQuestions.map((item) => ({
@@ -129,22 +95,12 @@ export class WrongbookService {
 
     if (wrongQuestions.length === 0) {
       return {
-        totalWrongQuestions: 1,
-        unresolvedCount: 1,
+        totalWrongQuestions: 0,
+        unresolvedCount: 0,
         resolvedCount: 0,
-        groupedByKnowledgePoint: [
-          {
-            knowledgePointId: 'demo-kp-1',
-            knowledgePointName: '万以内加法',
-            count: 1,
-          },
-        ],
-        groupedByQuestionType: [
-          {
-            questionType: 'SHORT_ANSWER',
-            count: 1,
-          },
-        ],
+        archivedCount,
+        groupedByKnowledgePoint: [],
+        groupedByQuestionType: [],
       };
     }
 
@@ -152,12 +108,11 @@ export class WrongbookService {
     for (const item of wrongQuestions) {
       const key = item.knowledgePoint?.id ?? 'unknown';
       const current = groupedMap.get(key);
-      const next = {
+      groupedMap.set(key, {
         knowledgePointId: item.knowledgePoint?.id ?? 'unknown',
         knowledgePointName: item.knowledgePoint?.name ?? '未分类知识点',
         count: (current?.count ?? 0) + 1,
-      };
-      groupedMap.set(key, next);
+      });
     }
 
     return {
@@ -182,12 +137,11 @@ export class WrongbookService {
     });
 
     if (!wrongQuestion) {
-      throw new NotFoundException('错题记录不存在');
+      throw new NotFoundException('错题记录不存在。');
     }
 
     const normalizedStudentAnswer = payload.answer.replace(/\s+/g, '').trim().toUpperCase();
-    const normalizedCorrectAnswer =
-      wrongQuestion.question.answer.replace(/\s+/g, '').trim().toUpperCase();
+    const normalizedCorrectAnswer = wrongQuestion.question.answer.replace(/\s+/g, '').trim().toUpperCase();
     const resolved = normalizedStudentAnswer === normalizedCorrectAnswer;
 
     const updatedWrongQuestion = await this.prisma.wrongQuestion.update({
@@ -204,15 +158,11 @@ export class WrongbookService {
       resolved,
       studentAnswer: payload.answer,
       correctAnswer: wrongQuestion.question.answer,
-      nextAction: resolved ? '已掌握，可移出重点复习列表。' : '建议继续重练并查看解析。',
+      nextAction: resolved ? '这道错题已经掌握，可以移出重点复习列表。' : '建议继续重练，并结合解析再次理解题意。',
     };
   }
 
-  async archive(
-    user: AuthUser,
-    wrongQuestionId: string,
-    payload: ArchiveWrongQuestionDto,
-  ) {
+  async archive(user: AuthUser, wrongQuestionId: string, payload: ArchiveWrongQuestionDto) {
     const wrongQuestion = await this.prisma.wrongQuestion.findFirst({
       where: {
         id: wrongQuestionId,
@@ -221,16 +171,14 @@ export class WrongbookService {
     });
 
     if (!wrongQuestion) {
-      throw new NotFoundException('错题记录不存在');
+      throw new NotFoundException('错题记录不存在。');
     }
 
     const updatedWrongQuestion = await this.prisma.wrongQuestion.update({
       where: { id: wrongQuestion.id },
       data: {
         archivedAt: new Date(),
-        reviewStatus: payload.reason
-          ? `ARCHIVED:${payload.reason}`
-          : 'ARCHIVED',
+        reviewStatus: payload.reason ? `ARCHIVED:${payload.reason}` : 'ARCHIVED',
       },
     });
 
@@ -238,7 +186,7 @@ export class WrongbookService {
       id: updatedWrongQuestion.id,
       archivedAt: updatedWrongQuestion.archivedAt,
       reviewStatus: updatedWrongQuestion.reviewStatus,
-      message: '错题已归档，可在需要时重新纳入复习。',
+      message: '错题已归档，后续如需复习可重新加入练习。',
     };
   }
 

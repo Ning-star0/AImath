@@ -13,21 +13,27 @@ import {
 } from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'student_001', description: '系统用户名' })
+  @ApiProperty({ example: 'student_001', description: 'System username' })
   @IsString()
   @MinLength(4)
   username!: string;
 
-  @ApiProperty({ example: '小明', description: '显示名称' })
+  @ApiProperty({ example: '小明', description: 'Display name' })
   @IsString()
   @MinLength(2)
   displayName!: string;
 
-  @ApiProperty({ example: 'S20260001', description: '学生学号或教师工号' })
+  @ApiPropertyOptional({ example: 'S20260001', description: 'Student ID' })
+  @IsOptional()
   @IsString()
-  studentCode!: string;
+  studentCode?: string;
 
-  @ApiProperty({ example: '12345678', description: '登录密码' })
+  @ApiPropertyOptional({ example: 'T20260001', description: 'Teacher ID' })
+  @IsOptional()
+  @IsString()
+  teacherCode?: string;
+
+  @ApiProperty({ example: '12345678', description: 'Account password' })
   @IsString()
   @MinLength(6)
   password!: string;
@@ -47,11 +53,25 @@ export class RegisterDto {
   @IsEnum(Role)
   role?: Role;
 
-  @ApiPropertyOptional({ example: 3, description: '学生年级，学生角色时必填' })
+  @ApiPropertyOptional({ example: 3, description: 'Student grade, required for students' })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(6)
   grade?: number;
-}
 
+  @ApiPropertyOptional({ example: '三年级二班', description: 'Class name for student registration' })
+  @IsOptional()
+  @IsString()
+  className?: string;
+
+  @ApiPropertyOptional({ example: '星河小学', description: 'School name' })
+  @IsOptional()
+  @IsString()
+  schoolName?: string;
+
+  @ApiPropertyOptional({ example: '数学', description: 'Teacher subject' })
+  @IsOptional()
+  @IsString()
+  subject?: string;
+}

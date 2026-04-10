@@ -9,6 +9,7 @@ export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 export interface LoginPayload {
   account: string;
   password: string;
+  role?: UserRole;
 }
 
 export interface UserProfile {
@@ -17,6 +18,7 @@ export interface UserProfile {
   account?: string;
   displayName: string;
   role: UserRole;
+  isActive?: boolean;
   grade?: number | null;
   studentCode?: string | null;
   teacherCode?: string | null;
@@ -28,11 +30,60 @@ export interface UserProfile {
     schoolName?: string | null;
     className?: string | null;
   } | null;
+  teacher?: {
+    id: string;
+    userId: string;
+    teacherCode?: string | null;
+    schoolName?: string | null;
+    subject?: string | null;
+    reviewStatus?: string | null;
+    reviewNote?: string | null;
+    classAccessStatus?: string | null;
+    classAccessNote?: string | null;
+    requestedClasses?: Array<{
+      grade: number;
+      className: string;
+      schoolName?: string | null;
+    }>;
+    approvedClasses?: Array<{
+      grade: number;
+      className: string;
+      schoolName?: string | null;
+    }>;
+  } | null;
+}
+
+export interface AuthNextStep {
+  status: 'AUTO_LOGIN' | 'PENDING_REVIEW' | 'WAITING_ACTIVATION';
+  title: string;
+  description: string;
 }
 
 export interface LoginResult {
   accessToken: string;
   user: UserProfile;
+  nextStep?: AuthNextStep;
+}
+
+export interface RegisterPayload {
+  username: string;
+  displayName: string;
+  studentCode?: string;
+  teacherCode?: string;
+  password: string;
+  email?: string;
+  phone?: string;
+  role: Extract<UserRole, 'STUDENT' | 'TEACHER'>;
+  grade?: number;
+  className?: string;
+  schoolName?: string;
+  subject?: string;
+}
+
+export interface RegisterResult {
+  accessToken: string | null;
+  user: UserProfile;
+  nextStep: AuthNextStep;
 }
 
 export interface UpdateStudentProfilePayload {

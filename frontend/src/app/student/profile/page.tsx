@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { PageShell } from '@/components/base/page-shell';
+import { AuthRequiredState } from '@/components/states/platform-states';
 import { ProgressBar } from '@/components/student-home/progress-bar';
 import { getLevelTitle, getRewardProgress, readRewardState } from '@/lib/game-rewards';
 import { authService } from '@/services/auth.service';
@@ -48,7 +49,7 @@ export default function StudentProfilePage() {
 
   const handleSave = async () => {
     if (!accessToken) {
-      setError('登录状态已失效，请重新登录。');
+      setError('登录状态已失效，请重新登录后再修改年级。');
       return;
     }
 
@@ -59,15 +60,21 @@ export default function StudentProfilePage() {
     try {
       const updatedUser = await authService.updateStudentProfile({ grade });
       setSession(accessToken, updatedUser);
-      setMessage(`已为你切换到 ${grade} 年级，后续练习和学习建议会自动按新年级调整。`);
+      setMessage(`年级已更新为 ${grade} 年级，后续练习与学习建议会按新年级自动调整。`);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : '保存失败，请稍后重试。',
-      );
+      setError(saveError instanceof Error ? saveError.message : '保存失败，请稍后重试。');
     } finally {
       setSaving(false);
     }
   };
+
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="我的数学成长档案" description="查看身份信息、成长等级与当前学习设置。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
 
   const rewardProgress = getRewardProgress(rewardState.totalStars);
   const levelTitle = getLevelTitle(rewardProgress.level);
@@ -76,7 +83,7 @@ export default function StudentProfilePage() {
   return (
     <PageShell
       title="我的数学成长档案"
-      description="这里不是普通设置页，而是属于你的数学成长档案。你可以看到自己的年级、成长等级、星星奖励和学习身份。"
+      description="查看当前身份、成长等级、学习星星和年级设置，让练习、AI讲题和学习报告都更贴合你的学习阶段。"
     >
       <div className="space-y-6">
         <section className="grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
@@ -88,10 +95,10 @@ export default function StudentProfilePage() {
                   <span className="math-chip math-chip-success">学生身份</span>
                 </div>
                 <h2 className="font-math-display text-3xl font-extrabold text-ink">
-                  {currentUser?.displayName ?? '数学小队员'}，欢迎回来
+                  {currentUser?.displayName ?? '数学小伙伴'}，欢迎回来
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                  这里会保存你的学习身份、成长进度和当前年级，让练习、AI 讲解和学习报告都更贴合你现在的学习阶段。
+                  这里会保存你的学习身份、成长进度和当前年级，让平台为你提供更合适的练习、讲解和学习建议。
                 </p>
               </div>
               <div className="rounded-[1.8rem] bg-[linear-gradient(180deg,#F8FBFF,#EEF4FF)] p-3">
@@ -113,7 +120,7 @@ export default function StudentProfilePage() {
                 </p>
               </div>
               <div className="rounded-[1.4rem] bg-[#FFF8E1] px-4 py-5">
-                <p className="text-sm font-semibold text-slate-500">角色身份</p>
+                <p className="text-sm font-semibold text-slate-500">身份角色</p>
                 <p className="mt-2 font-math-display text-3xl font-extrabold text-[#EF6C00]">
                   学生
                 </p>
@@ -122,7 +129,7 @@ export default function StudentProfilePage() {
           </article>
 
           <article className="math-card rounded-[2rem] px-6 py-6">
-            <h2 className="font-math-display text-3xl font-extrabold text-ink">成长勋章墙</h2>
+            <h2 className="font-math-display text-3xl font-extrabold text-ink">成长激励</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               <div className="rounded-[1.4rem] bg-[#F3E5F5] px-4 py-5 text-center">
                 <p className="text-sm text-violet-700">成长等级</p>
@@ -131,13 +138,13 @@ export default function StudentProfilePage() {
               </div>
               <div className="rounded-[1.4rem] bg-[#FFF8E1] px-4 py-5 text-center">
                 <p className="text-sm text-amber-700">成长星星</p>
-                <p className="mt-2 text-3xl font-bold text-amber-600">{rewardState.totalStars} ★</p>
-                <p className="mt-2 text-xs text-slate-500">做题和完成任务获得</p>
+                <p className="mt-2 text-3xl font-bold text-amber-600">{rewardState.totalStars} 颗</p>
+                <p className="mt-2 text-xs text-slate-500">完成练习和任务会持续累积</p>
               </div>
               <div className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-5 text-center">
                 <p className="text-sm text-emerald-700">连续学习</p>
                 <p className="mt-2 text-3xl font-bold text-emerald-700">{rewardState.streakDays} 天</p>
-                <p className="mt-2 text-xs text-slate-500">坚持越久越厉害</p>
+                <p className="mt-2 text-xs text-slate-500">保持节奏会更稳</p>
               </div>
             </div>
           </article>
@@ -178,7 +185,7 @@ export default function StudentProfilePage() {
                   数学闯关者
                 </div>
                 <div className="rounded-[1.2rem] bg-white/90 px-4 py-3 text-sm font-semibold text-slate-700">
-                  AI 提问小能手
+                  AI提问小能手
                 </div>
                 <div className="rounded-[1.2rem] bg-white/90 px-4 py-3 text-sm font-semibold text-slate-700">
                   连续学习达人
@@ -190,16 +197,14 @@ export default function StudentProfilePage() {
 
         <section className="math-card rounded-[2rem] px-7 py-7">
           <p className="text-sm font-black uppercase tracking-[0.18em] text-brand-700">学习档案设置</p>
-          <h2 className="mt-2 font-math-display text-3xl font-extrabold text-ink">设置你的当前年级</h2>
+          <h2 className="mt-2 font-math-display text-3xl font-extrabold text-ink">设置当前年级</h2>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            这里的年级会影响默认练习题、AI 讲解难度和学习报告中的推荐内容。
+            当前年级会影响默认练习内容、AI讲题难度和学习报告中的推荐建议。
           </p>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
             <div className="rounded-[1.6rem] border border-slate-100 bg-slate-50/80 p-5">
-              <label className="block text-sm font-semibold text-slate-700">
-                当前年级
-              </label>
+              <label className="block text-sm font-semibold text-slate-700">当前年级</label>
               <select
                 value={grade}
                 onChange={(event) => setGrade(Number(event.target.value))}
@@ -237,9 +242,9 @@ export default function StudentProfilePage() {
             <div className="rounded-[1.6rem] border border-brand-100 bg-brand-50/70 p-5">
               <h3 className="font-math-display text-2xl font-extrabold text-ink">修改后会发生什么</h3>
               <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
-                <p>1. 练习页会优先显示你当前年级的题目。</p>
+                <p>1. 练习页会优先显示当前年级对应的题目。</p>
                 <p>2. AI 讲解会尽量按这个年级的理解方式来说明。</p>
-                <p>3. 学习首页和学习报告会按新年级调整推荐内容。</p>
+                <p>3. 学生首页和学习报告会按新年级调整推荐内容。</p>
               </div>
             </div>
           </div>

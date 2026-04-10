@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api';
 import type { ApiResponse } from '@/types/api';
+import type { ManagedClassAssignment } from './teacher.service';
 
 export interface AdminDashboardResult {
   systemStats: {
@@ -24,9 +25,51 @@ export interface AdminUsersResult {
     isActive: boolean;
     studentCode?: string | null;
     teacherCode?: string | null;
+    schoolName?: string | null;
+    subject?: string | null;
+    teacherReviewStatus?: string | null;
+    teacherReviewNote?: string | null;
+    teacherClassAccessStatus?: string | null;
+    teacherClassAccessNote?: string | null;
+    requestedClasses?: ManagedClassAssignment[];
+    approvedClasses?: ManagedClassAssignment[];
     createdAt: string;
   }>;
   total: number;
+}
+
+export interface ReviewTeacherResult {
+  userId: string;
+  displayName: string;
+  reviewStatus: string | null;
+  reviewNote: string | null;
+  isActive: boolean;
+  nextStep: string;
+}
+
+export interface ReviewTeacherClassAccessResult {
+  userId: string;
+  displayName: string;
+  classAccessStatus: string | null;
+  classAccessNote: string | null;
+  requestedClasses: ManagedClassAssignment[];
+  approvedClasses: ManagedClassAssignment[];
+  nextStep: string;
+}
+
+export interface DeleteUserResult {
+  deletedUser: {
+    id: string;
+    username: string;
+    displayName: string;
+    role: string;
+  };
+  cleanupSummary: {
+    exerciseRecordCount: number;
+    wrongQuestionCount: number;
+    aiQaRecordCount: number;
+    learningReportCount: number;
+  };
 }
 
 export interface AdminQuestionsResult {
@@ -43,6 +86,13 @@ export interface AdminQuestionsResult {
     createdAt: string;
   }>;
   total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  filters?: {
+    grade?: number | null;
+    questionType?: string | null;
+  };
 }
 
 export interface AdminAiConfigResult {
@@ -128,9 +178,50 @@ export const adminService = {
     return response.data.data;
   },
 
-  async getQuestions() {
+  async deleteUser(userId: string) {
+    const response = await apiClient.delete<ApiResponse<DeleteUserResult>>(
+      `/admin/users/${userId}`,
+    );
+    return response.data.data;
+  },
+
+  async reviewTeacher(
+    userId: string,
+    payload: { decision: 'APPROVED' | 'REJECTED'; note?: string },
+  ) {
+    const response = await apiClient.patch<ApiResponse<ReviewTeacherResult>>(
+      `/admin/users/${userId}/teacher-review`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async reviewTeacherClassAccess(
+    userId: string,
+    payload: {
+      decision: 'APPROVED' | 'REJECTED';
+      note?: string;
+      approvedClasses?: ManagedClassAssignment[];
+    },
+  ) {
+    const response = await apiClient.patch<ApiResponse<ReviewTeacherClassAccessResult>>(
+      `/admin/users/${userId}/teacher-class-access-review`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async getQuestions(params?: {
+    page?: number;
+    pageSize?: number;
+    grade?: number;
+    questionType?: string;
+  }) {
     const response = await apiClient.get<ApiResponse<AdminQuestionsResult>>(
       '/admin/questions',
+      {
+        params,
+      },
     );
     return response.data.data;
   },

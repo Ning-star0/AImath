@@ -1,0 +1,163 @@
+{
+  "batchName": "grade6-basic-batch",
+  "knowledgePoints": [
+    {
+      "code": "GRADE6-FRACTION-001",
+      "name": "分数乘法",
+      "grade": 6,
+      "chapter": "分数运算",
+      "description": "理解分数乘法的计算方法和约分规则。"
+    },
+    {
+      "code": "GRADE6-RATIO-001",
+      "name": "比和比的应用",
+      "grade": 6,
+      "chapter": "比",
+      "description": "理解比的意义，并能解决按比分配问题。"
+    },
+    {
+      "code": "GRADE6-PERCENT-001",
+      "name": "百分数应用",
+      "grade": 6,
+      "chapter": "百分数",
+      "description": "掌握百分数与分数、小数之间的转化及实际应用。"
+    },
+    {
+      "code": "GRADE6-GEOMETRY-001",
+      "name": "圆的面积",
+      "grade": 6,
+      "chapter": "圆",
+      "description": "掌握圆面积公式并能结合实际情境计算。"
+    }
+  ],
+  "questions": [
+    {
+      "id": "grade6-choice-001",
+      "title": "六年级分数乘法选择题 1",
+      "stem": "计算 3/5 × 10，正确结果是多少？",
+      "questionType": "SINGLE_CHOICE",
+      "grade": 6,
+      "difficulty": 1,
+      "answer": "C",
+      "options": [
+        { "label": "A", "value": "2" },
+        { "label": "B", "value": "4" },
+        { "label": "C", "value": "6" },
+        { "label": "D", "value": "8" }
+      ],
+      "analysis": "把 10 看作 10/1，相乘后得到 30/5=6。",
+      "tags": ["分数乘法", "选择题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-FRACTION-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-choice-002",
+      "title": "六年级比的应用选择题 1",
+      "stem": "甲乙两数的比是 3:5，甲数是 24，乙数是多少？",
+      "questionType": "SINGLE_CHOICE",
+      "grade": 6,
+      "difficulty": 2,
+      "answer": "B",
+      "options": [
+        { "label": "A", "value": "30" },
+        { "label": "B", "value": "40" },
+        { "label": "C", "value": "45" },
+        { "label": "D", "value": "60" }
+      ],
+      "analysis": "24 对应 3 份，1 份是 8，乙数对应 5 份，5×8=40。",
+      "tags": ["比", "按比分配", "选择题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-RATIO-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-choice-003",
+      "title": "六年级百分数选择题 1",
+      "stem": "一件商品打八折出售，表示现价是原价的百分之几？",
+      "questionType": "SINGLE_CHOICE",
+      "grade": 6,
+      "difficulty": 1,
+      "answer": "A",
+      "options": [
+        { "label": "A", "value": "80%" },
+        { "label": "B", "value": "20%" },
+        { "label": "C", "value": "8%" },
+        { "label": "D", "value": "120%" }
+      ],
+      "analysis": "八折就是按原价的 80% 出售。",
+      "tags": ["百分数", "折扣", "选择题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-PERCENT-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-choice-004",
+      "title": "六年级圆面积选择题 1",
+      "stem": "一个圆的半径是 2 厘米，它的面积是多少平方厘米？",
+      "questionType": "SINGLE_CHOICE",
+      "grade": 6,
+      "difficulty": 2,
+      "answer": "D",
+      "options": [
+        { "label": "A", "value": "4π" },
+        { "label": "B", "value": "2π" },
+        { "label": "C", "value": "8π" },
+        { "label": "D", "value": "12.56" }
+      ],
+      "analysis": "圆面积公式 S=πr²，r=2，所以 S=3.14×2×2=12.56。",
+      "tags": ["圆的面积", "选择题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-GEOMETRY-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-fill-001",
+      "title": "六年级分数乘法填空题 1",
+      "stem": "计算：4/7 × 21 = ____。",
+      "questionType": "FILL_BLANK",
+      "grade": 6,
+      "difficulty": 1,
+      "answer": "12",
+      "analysis": "21 与 7 先约分，21÷7=3，再算 4×3=12。",
+      "tags": ["分数乘法", "填空题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-FRACTION-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-fill-002",
+      "title": "六年级百分数填空题 1",
+      "stem": "把 0.25 化成百分数是 ____。",
+      "questionType": "FILL_BLANK",
+      "grade": 6,
+      "difficulty": 1,
+      "answer": "25%",
+      "analysis": "把小数化成百分数，小数点向右移动两位，再加上百分号。",
+      "tags": ["百分数", "填空题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-PERCENT-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-short-001",
+      "title": "六年级比的应用解答题 1",
+      "stem": "把 96 本图书按 5:3 分给甲、乙两个班，两个班各分到多少本？",
+      "questionType": "SHORT_ANSWER",
+      "grade": 6,
+      "difficulty": 2,
+      "answer": "甲班60本，乙班36本",
+      "analysis": "总份数是 5+3=8，96÷8=12（本），甲班分 5 份是 60 本，乙班分 3 份是 36 本。",
+      "tags": ["比", "应用题", "解答题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-RATIO-001"],
+      "source": "manual-json-import"
+    },
+    {
+      "id": "grade6-short-002",
+      "title": "六年级圆面积解答题 1",
+      "stem": "一个圆形花坛的半径是 4 米，这个花坛的面积是多少平方米？",
+      "questionType": "SHORT_ANSWER",
+      "grade": 6,
+      "difficulty": 2,
+      "answer": "50.24平方米",
+      "analysis": "根据圆面积公式 S=πr²，取 π=3.14，面积是 3.14×4×4=50.24（平方米）。",
+      "tags": ["圆的面积", "应用题", "解答题", "六年级"],
+      "knowledgePointCodes": ["GRADE6-GEOMETRY-001"],
+      "source": "manual-json-import"
+    }
+  ]
+}
