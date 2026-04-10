@@ -30,7 +30,7 @@ export function ReportQuestionList({
       <div className="mt-5 max-h-[36rem] space-y-4 overflow-y-auto pr-1">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center text-sm text-slate-500">
-            这里暂时没有题目记录。
+            这里暂时还没有题目记录。
           </div>
         ) : null}
 
@@ -58,15 +58,11 @@ export function ReportQuestionList({
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl bg-white/90 px-4 py-3">
                 <p className="text-xs text-slate-400">你的答案</p>
-                <p className="mt-1 text-sm font-medium text-slate-700">
-                  {item.studentAnswer || '未填写'}
-                </p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{item.studentAnswer || '未填写'}</p>
               </div>
               <div className="rounded-2xl bg-white/90 px-4 py-3">
                 <p className="text-xs text-slate-400">正确答案</p>
-                <p className="mt-1 text-sm font-medium text-slate-700">
-                  {item.correctAnswer || '暂无'}
-                </p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{item.correctAnswer || '暂无'}</p>
               </div>
               <div className="rounded-2xl bg-white/90 px-4 py-3">
                 <p className="text-xs text-slate-400">最近作答时间</p>

@@ -2,7 +2,7 @@
 
 const questionTypeOptions = [
   { value: 'SHORT_ANSWER', label: '应用题 / 解答题' },
-  { value: 'SINGLE_CHOICE', label: '选择题' },
+  { value: 'SINGLE_CHOICE', label: '单选题' },
   { value: 'MULTIPLE_CHOICE', label: '多选题' },
   { value: 'FILL_BLANK', label: '填空题' },
 ];
@@ -42,26 +42,24 @@ export function QuestionInputCard({
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-sky-100 text-lg font-semibold text-brand-700 shadow-sm">
-            🤖
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-ink">把不会的题交给 AI 老师</h2>
-            <p className="text-sm leading-6 text-slate-500">
-              把题目写完整一些，小数老师会先读题，再一步一步慢慢讲。
-            </p>
-          </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-sky-100 text-lg font-semibold text-brand-700 shadow-sm">
+              题
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-ink">输入需要讲解的题目</h2>
+              <p className="text-sm leading-6 text-slate-500">
+                题目信息越完整，爱因导师给出的讲解会越清楚。
+              </p>
+            </div>
           </div>
           <div className="shrink-0 rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
-            🌈 勇敢提问
+            AI 讲题入口
           </div>
         </div>
 
         <div className="grid gap-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              这是什么题
-            </label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">题目类型</label>
             <select
               value={questionType}
               onChange={(event) => onQuestionTypeChange(event.target.value)}
@@ -76,9 +74,7 @@ export function QuestionInputCard({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              题目
-            </label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">题目内容</label>
             <textarea
               value={value}
               onChange={(event) => onChange(event.target.value)}
@@ -90,9 +86,7 @@ export function QuestionInputCard({
 
           {isChoiceQuestion ? (
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                选项
-              </label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">题目选项</label>
               <textarea
                 value={optionsText}
                 onChange={(event) => onOptionsTextChange(event.target.value)}
@@ -101,7 +95,7 @@ export function QuestionInputCard({
                 placeholder={'每行一个选项，例如：\nA. 40\nB. 50\nC. 52\nD. 60'}
               />
               <p className="mt-2 text-xs leading-6 text-slate-500">
-                把选项一起写上，AI 老师讲选择题会更准确。
+                选择题请把选项一并填写，AI 讲解会更准确。
               </p>
             </div>
           ) : null}
@@ -120,9 +114,9 @@ export function QuestionInputCard({
 
           <div className="rounded-3xl border border-white/80 bg-white/70 p-3 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-brand-50/80 px-3 py-2 text-xs font-semibold text-brand-700">
-              <span>✨ 提示：题目写得越完整，讲解会越清楚。</span>
+              <span>提示：题目写得越完整，讲解会越清楚。</span>
               <span className="rounded-full bg-white px-2 py-1 text-[11px] text-sky-700">
-                小数老师在等你
+                爱因导师已就绪
               </span>
             </div>
             <button
@@ -131,8 +125,7 @@ export function QuestionInputCard({
               disabled={loading}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-900 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              <span>{loading ? '🌀' : '🎧'}</span>
-              {loading ? 'AI 老师正在讲解...' : '开始听讲解'}
+              {loading ? '正在生成讲解...' : '开始讲解'}
             </button>
           </div>
         </div>

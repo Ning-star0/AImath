@@ -36,11 +36,9 @@ export class ExercisesService {
       },
     });
 
-    const fallbackQuestions = this.buildFallbackQuestions();
-    const mergedQuestions = questionIds.map((id) => {
-      const found = dbQuestions.find((question) => question.id === id);
-      return found ?? fallbackQuestions.find((question) => question.id === id);
-    });
+    const mergedQuestions = questionIds.map((id) =>
+      dbQuestions.find((question) => question.id === id),
+    );
 
     if (mergedQuestions.some((item) => !item)) {
       throw new NotFoundException('部分题目不存在，无法提交答案');
@@ -86,46 +84,6 @@ export class ExercisesService {
       totalCount === 0 ? 0 : Number(((correctCount / totalCount) * 100).toFixed(2));
 
     const createdRecord = await this.prisma.$transaction(async (tx) => {
-      const existingQuestionIds = new Set(dbQuestions.map((item) => item.id));
-      const fallbackItemsToPersist = judgedItems.filter(
-        (item) => !existingQuestionIds.has(item.question.id),
-      );
-
-      for (const item of fallbackItemsToPersist) {
-        await tx.question.upsert({
-          where: { id: item.question.id },
-          update: {
-            title: item.question.title,
-            stem: item.question.stem,
-            questionType: item.question.questionType,
-            grade: item.question.grade,
-            difficulty: item.question.difficulty,
-            answer: item.question.answer,
-            options: item.question.options
-              ? (item.question.options as unknown as Prisma.InputJsonValue)
-              : Prisma.JsonNull,
-            analysis: item.question.analysis,
-            tags: item.question.tags,
-            source: item.question.source ?? 'fallback',
-          },
-          create: {
-            id: item.question.id,
-            title: item.question.title,
-            stem: item.question.stem,
-            questionType: item.question.questionType,
-            grade: item.question.grade,
-            difficulty: item.question.difficulty,
-            answer: item.question.answer,
-            options: item.question.options
-              ? (item.question.options as unknown as Prisma.InputJsonValue)
-              : Prisma.JsonNull,
-            analysis: item.question.analysis,
-            tags: item.question.tags,
-            source: item.question.source ?? 'fallback',
-          },
-        });
-      }
-
       const exerciseRecord = await tx.exerciseRecord.create({
         data: {
           userId: user.id,

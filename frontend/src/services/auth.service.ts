@@ -3,6 +3,8 @@ import type {
   ApiResponse,
   LoginPayload,
   LoginResult,
+  RegisterPayload,
+  RegisterResult,
   UpdateStudentProfilePayload,
 } from '@/types/api';
 
@@ -10,6 +12,15 @@ export const authService = {
   async login(payload: LoginPayload) {
     const response = await apiClient.post<ApiResponse<LoginResult>>(
       '/auth/login',
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async register(payload: RegisterPayload) {
+    const response = await apiClient.post<ApiResponse<RegisterResult>>(
+      '/auth/register',
       payload,
     );
 

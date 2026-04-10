@@ -29,6 +29,25 @@ interface StreamHandlers {
   onError?: (message: string) => void;
 }
 
+export interface StudentLearningInsight {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  teacherFocus: string[];
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+interface StudentLearningInsightInput {
+  studentName: string;
+  grade?: number;
+  accuracyRate: number;
+  totalQuestions: number;
+  unresolvedWrongCount: number;
+  weakKnowledgePoints: string[];
+  recentWrongQuestions: string[];
+}
+
 @Injectable()
 export class OpenAiClient {
   private readonly logger = new Logger(OpenAiClient.name);
@@ -82,6 +101,46 @@ export class OpenAiClient {
         `AI 调用失败，回退到本地答案：${error instanceof Error ? error.message : 'unknown error'}`,
       );
       return this.buildFallback(input, 'AI 服务暂时不可用，本次返回的是本地回退答案。');
+    }
+  }
+
+  async analyzeStudentLearningProfile(
+    input: StudentLearningInsightInput,
+  ): Promise<StudentLearningInsight> {
+    if (!this.client) {
+      this.logger.warn('OPENAI_API_KEY 未配置，返回本地学生学情分析结果。');
+      return this.buildStudentInsightFallback(input);
+    }
+
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.model,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '你是一名小学数学教研分析助手。请根据学生做题表现输出结构化 JSON，字段必须包含 summary、strengths、weaknesses、recommendations、teacherFocus、confidence。语言简洁、专业、适合教师查看。',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify(input),
+          },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content;
+      if (!raw) {
+        return this.buildStudentInsightFallback(input);
+      }
+
+      return this.parseStudentInsight(raw, input);
+    } catch (error) {
+      this.logger.error(
+        `学生学情分析失败，回退到本地结果：${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      return this.buildStudentInsightFallback(input);
     }
   }
 
@@ -177,6 +236,43 @@ export class OpenAiClient {
     };
   }
 
+  private buildStudentInsightFallback(
+    input: StudentLearningInsightInput,
+  ): StudentLearningInsight {
+    const weaknesses =
+      input.weakKnowledgePoints.length > 0
+        ? input.weakKnowledgePoints.map((item) => `${item}需要继续巩固`)
+        : ['当前练习样本较少，暂时无法稳定识别薄弱知识点'];
+
+    const strengths =
+      input.accuracyRate >= 85
+        ? ['基础练习完成较稳定', '最近正确率保持在较好水平']
+        : input.accuracyRate >= 60
+          ? ['已有部分知识点掌握较稳定']
+          : ['能够持续完成练习，具备继续提升的基础'];
+
+    const recommendations =
+      input.unresolvedWrongCount > 0
+        ? ['建议先完成错题复习，再进入相似题巩固', '优先处理最近重复出错的题目']
+        : ['建议继续保持本周练习频率，逐步扩大题量覆盖'];
+
+    return {
+      summary:
+        input.unresolvedWrongCount > 0
+          ? `${input.studentName}当前仍有 ${input.unresolvedWrongCount} 道待复习错题，薄弱点主要集中在${input.weakKnowledgePoints[0] ?? '近期错题涉及的知识点'}。`
+          : `${input.studentName}当前整体练习状态较稳定，可以继续通过专项练习提升掌握度。`,
+      strengths,
+      weaknesses,
+      recommendations,
+      teacherFocus: [
+        '先检查学生是否真正理解题意，而不只是记住答案',
+        '结合错题讲解与相似题训练观察是否能独立完成',
+      ],
+      confidence:
+        input.totalQuestions >= 12 ? 'HIGH' : input.totalQuestions >= 5 ? 'MEDIUM' : 'LOW',
+    };
+  }
+
   private parseStructuredAnswer(
     rawText: string,
     originalQuestion: string,
@@ -192,6 +288,39 @@ export class OpenAiClient {
         { originalQuestion },
         'AI 返回内容解析失败，本次展示的是安全回退答案。',
       );
+    }
+  }
+
+  private parseStudentInsight(
+    rawText: string,
+    input: StudentLearningInsightInput,
+  ): StudentLearningInsight {
+    try {
+      const parsed = JSON.parse(rawText) as Partial<StudentLearningInsight>;
+      return {
+        summary:
+          typeof parsed.summary === 'string' && parsed.summary
+            ? parsed.summary
+            : this.buildStudentInsightFallback(input).summary,
+        strengths: Array.isArray(parsed.strengths)
+          ? parsed.strengths.filter((item): item is string => typeof item === 'string')
+          : [],
+        weaknesses: Array.isArray(parsed.weaknesses)
+          ? parsed.weaknesses.filter((item): item is string => typeof item === 'string')
+          : [],
+        recommendations: Array.isArray(parsed.recommendations)
+          ? parsed.recommendations.filter((item): item is string => typeof item === 'string')
+          : [],
+        teacherFocus: Array.isArray(parsed.teacherFocus)
+          ? parsed.teacherFocus.filter((item): item is string => typeof item === 'string')
+          : [],
+        confidence:
+          parsed.confidence === 'LOW' || parsed.confidence === 'MEDIUM' || parsed.confidence === 'HIGH'
+            ? parsed.confidence
+            : 'MEDIUM',
+      };
+    } catch {
+      return this.buildStudentInsightFallback(input);
     }
   }
 

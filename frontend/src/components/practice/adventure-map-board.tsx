@@ -20,41 +20,41 @@ interface AdventureMapBoardProps {
 const stages: AdventureStage[] = [
   {
     id: 'warmup',
-    emoji: '🌱',
+    emoji: '1',
     title: '热身草地',
-    description: '先做一些简单题，把脑袋热起来。',
+    description: '先做一些基础题，把思路慢慢热起来。',
     difficulty: 1,
     rewardText: '适合热身',
   },
   {
     id: 'river',
-    emoji: '🌊',
+    emoji: '2',
     title: '进阶小河',
-    description: '开始遇到一点思考题，练练稳定度。',
+    description: '开始加入思考题，练习稳定度。',
     difficulty: 2,
-    rewardText: '练习稳定度',
+    rewardText: '进阶练习',
   },
   {
     id: 'forest',
-    emoji: '🌲',
+    emoji: '3',
     title: '思考森林',
     description: '需要多想一步，适合认真挑战。',
     difficulty: 3,
-    rewardText: '开始挑战',
+    rewardText: '强化思考',
   },
   {
     id: 'castle',
-    emoji: '🏰',
+    emoji: '4',
     title: '冠军城堡',
-    description: '更难一点的题都在这里，适合闯关。',
+    description: '更难一点的题目集中在这里，适合闯关。',
     difficulty: 4,
-    rewardText: '冲刺高难度',
+    rewardText: '冲刺提升',
   },
   {
     id: 'boss',
-    emoji: '👑',
+    emoji: '5',
     title: '终极王冠关',
-    description: '这是最难的一关，留给想继续突破的你。',
+    description: '这是最难的一关，留给继续突破的你。',
     difficulty: 5,
     rewardText: '终极挑战',
   },
@@ -74,13 +74,11 @@ export function AdventureMapBoard({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-700">
-            冒险地图
+            练习地图
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-ink">
-            {grade} 年级闯关小地图
-          </h2>
+          <h2 className="mt-2 text-2xl font-bold text-ink">{grade} 年级闯关地图</h2>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-            选一个关卡开始挑战，系统会帮你切换到对应难度的题目区。
+            选择一个关卡开始挑战，系统会自动切换到对应难度的题目区。
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -114,7 +112,7 @@ export function AdventureMapBoard({
                 <span className="pointer-events-none absolute -right-3 top-1/2 hidden h-1 w-6 -translate-y-1/2 rounded-full bg-brand-100 lg:block" />
               ) : null}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-sky-100 text-2xl shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-100 to-sky-100 text-2xl font-black text-brand-700 shadow-sm">
                   {stage.emoji}
                 </div>
                 <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">

@@ -1,11 +1,16 @@
 import { create } from 'zustand';
-import { clearPersistedSession, getStoredAccessToken, persistSession } from '@/lib/api';
+import {
+  clearPersistedSession,
+  getStoredAccessToken,
+  getStoredCurrentUser,
+  persistSession,
+} from '@/lib/api';
 import type { UserProfile } from '@/types/api';
 
 interface UserState {
   accessToken: string | null;
   currentUser: UserProfile | null;
-  setSession: (token: string, user: UserProfile) => void;
+  setSession: (token: string, user: UserProfile, remember?: boolean) => void;
   hydrateSession: () => void;
   clearSession: () => void;
 }
@@ -13,9 +18,9 @@ interface UserState {
 export const useUserStore = create<UserState>((set) => ({
   accessToken: null,
   currentUser: null,
-  setSession: (token, user) =>
+  setSession: (token, user, remember = true) =>
     set(() => {
-      persistSession(token, user);
+      persistSession(token, user, remember);
       return {
         accessToken: token,
         currentUser: user,
@@ -31,7 +36,7 @@ export const useUserStore = create<UserState>((set) => ({
       }
 
       const accessToken = getStoredAccessToken();
-      const storedUser = window.localStorage.getItem('currentUser');
+      const storedUser = getStoredCurrentUser();
 
       return {
         accessToken,

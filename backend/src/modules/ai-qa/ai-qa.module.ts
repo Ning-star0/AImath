@@ -6,7 +6,7 @@ import { OpenAiClient } from '../../shared/ai/openai.client';
 @Module({
   controllers: [AiQaController],
   providers: [AiQaService, OpenAiClient],
-  exports: [AiQaService],
+  exports: [AiQaService, OpenAiClient],
 })
 export class AiQaModule {}
 
