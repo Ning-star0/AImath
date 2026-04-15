@@ -97,9 +97,17 @@ export interface AdminQuestionsResult {
 
 export interface AdminAiConfigResult {
   provider: string;
-  model: string;
-  baseUrl?: string | null;
   promptVersion: string;
+  textConfig: {
+    provider: string;
+    model: string;
+    baseUrl?: string | null;
+  };
+  visionConfig: {
+    provider: string;
+    model: string;
+    baseUrl?: string | null;
+  };
   placeholders: {
     moderation: string;
     rateLimit: string;

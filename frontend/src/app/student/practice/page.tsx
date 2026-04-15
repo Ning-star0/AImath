@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { CompactAiResult } from '@/components/ai-qa/compact-ai-result';
 import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
@@ -10,8 +11,10 @@ import {
   NetworkErrorState,
   NoLearningDataState,
   PageLoadErrorState,
+  PermissionDeniedState,
   SessionExpiredState,
 } from '@/components/states/platform-states';
+import { awardStars } from '@/lib/game-rewards';
 import { getPlatformErrorKind } from '@/lib/platform-errors';
 import { aiService } from '@/services/ai.service';
 import { authService } from '@/services/auth.service';
@@ -33,6 +36,8 @@ type StageSummary = {
   completed: number;
   wrong: number;
 };
+
+const QUESTIONS_PER_STAGE = 20;
 
 function buildQuestionText(question: QuestionItem) {
   if (!question.options?.length) {
@@ -58,17 +63,16 @@ function getFirstPendingIndex(questions: QuestionItem[], statusMap: Map<string, 
 }
 
 function buildStageSummaries(questions: QuestionItem[], statusMap: Map<string, QuestionStatus>) {
-  const chunkSize = 5;
   const stages: StageSummary[] = [];
 
-  for (let index = 0; index < questions.length; index += chunkSize) {
-    const slice = questions.slice(index, index + chunkSize);
+  for (let index = 0; index < questions.length; index += QUESTIONS_PER_STAGE) {
+    const slice = questions.slice(index, index + QUESTIONS_PER_STAGE);
     const completed = slice.filter((item) => statusMap.has(item.id)).length;
     const wrong = slice.filter((item) => statusMap.get(item.id) === 'WRONG').length;
 
     stages.push({
       stageIndex: stages.length,
-      title: `第 ${stages.length + 1} 站`,
+      title: `第 ${stages.length + 1} 页`,
       startIndex: index,
       endIndex: index + slice.length - 1,
       total: slice.length,
@@ -81,6 +85,7 @@ function buildStageSummaries(questions: QuestionItem[], statusMap: Map<string, Q
 }
 
 export default function StudentPracticePage() {
+  const router = useRouter();
   const currentUser = useUserStore((state) => state.currentUser);
   const hydrateSession = useUserStore((state) => state.hydrateSession);
   const setSession = useUserStore((state) => state.setSession);
@@ -101,6 +106,7 @@ export default function StudentPracticePage() {
   const [pageTip, setPageTip] = useState('');
   const [pageTipTone, setPageTipTone] = useState<PageTipTone>('info');
   const [selectedSubject, setSelectedSubject] = useState('MATH');
+  const [retryQuestionId, setRetryQuestionId] = useState('');
 
   useEffect(() => {
     hydrateSession();
@@ -113,6 +119,7 @@ export default function StudentPracticePage() {
 
     const params = new URLSearchParams(window.location.search);
     setSelectedSubject((params.get('subject') || 'MATH').toUpperCase());
+    setRetryQuestionId(params.get('questionId') || '');
   }, []);
 
   useEffect(() => {
@@ -132,20 +139,43 @@ export default function StudentPracticePage() {
 
         const grade = resolvedUser.grade ?? resolvedUser.student?.grade ?? 3;
         const [questionData, reportData] = await Promise.all([
-          questionService.getQuestionList({ grade, subject: selectedSubject }),
+          questionService.getQuestionList({ grade, subject: selectedSubject, take: 100 }),
           reportService.getOverview(),
         ]);
 
+        const retryQuestion =
+          retryQuestionId && !questionData.list.some((item) => item.id === retryQuestionId)
+            ? await questionService.getQuestionDetail(retryQuestionId).catch(() => null)
+            : null;
+
+        const mergedQuestions = retryQuestion
+          ? [retryQuestion, ...questionData.list]
+          : questionData.list;
         const nextStatusMap = buildStatusMap(reportData);
-        setQuestions(questionData.list);
+        setQuestions(mergedQuestions);
         setReport(reportData);
         setStatusMap(nextStatusMap);
         setActiveIndex((current) => {
-          if (questionData.list.length === 0) {
+          if (mergedQuestions.length === 0) {
             return 0;
           }
-          return current < questionData.list.length ? current : getFirstPendingIndex(questionData.list, nextStatusMap);
+
+          if (retryQuestionId) {
+            const retryIndex = mergedQuestions.findIndex((item) => item.id === retryQuestionId);
+            if (retryIndex >= 0) {
+              return retryIndex;
+            }
+          }
+
+          return current < mergedQuestions.length
+            ? current
+            : getFirstPendingIndex(mergedQuestions, nextStatusMap);
         });
+
+        if (retryQuestionId) {
+          setPageTip('当前已定位到你选择重做的那道错题，答对后会自动从错题本移除。');
+          setPageTipTone('info');
+        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : '练习题目加载失败，请稍后重试。');
       } finally {
@@ -154,7 +184,23 @@ export default function StudentPracticePage() {
     };
 
     void loadData();
-  }, [accessToken, currentUser, setSession]);
+  }, [accessToken, currentUser, retryQuestionId, selectedSubject, setSession]);
+
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
 
   const activeQuestion = questions[activeIndex] ?? null;
   const progressLabel = questions.length > 0 ? `${activeIndex + 1} / ${questions.length}` : '0 / 0';
@@ -171,12 +217,25 @@ export default function StudentPracticePage() {
     () => stageSummaries.findIndex((stage) => activeIndex >= stage.startIndex && activeIndex <= stage.endIndex),
     [activeIndex, stageSummaries],
   );
+  const activeStage = activeStageIndex >= 0 ? stageSummaries[activeStageIndex] : null;
+  const visibleQuestions = activeStage
+    ? questions.slice(activeStage.startIndex, activeStage.endIndex + 1)
+    : questions;
 
   const handleSelectQuestion = (index: number) => {
     setActiveIndex(index);
     setAiResult(null);
     setPageTip('');
     setPageTipTone('info');
+  };
+
+  const handleSelectStage = (stageIndex: number) => {
+    const targetStage = stageSummaries[stageIndex];
+    if (!targetStage) {
+      return;
+    }
+
+    handleSelectQuestion(targetStage.startIndex);
   };
 
   const handleAnswerChange = (questionId: string, value: string) => {
@@ -233,9 +292,16 @@ export default function StudentPracticePage() {
       });
 
       if (currentDetail?.isCorrect) {
+        awardStars(currentUser?.id, 3);
+        if (retryQuestionId) {
+          router.push('/student/wrongbook?resolved=1');
+          return;
+        }
+
         setPageTip('这道题答对了。你可以继续下一题，也可以留在这里再检查一遍。');
         setPageTipTone('success');
       } else {
+        awardStars(currentUser?.id, 1);
         setPageTip('这道题答错了。系统已记录为错题，请先看讲解，再决定是否重新作答。');
         setPageTipTone('warning');
       }
@@ -333,11 +399,11 @@ export default function StudentPracticePage() {
                 <div>
                   <p className="text-sm font-black text-brand-700">地图闯关</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    当前学科：{selectedSubject === 'MATH' ? '数学' : selectedSubject}。每 5 题为一站，做完当前站后再进入下一站。
+                    当前学科：数学。每页 20 题，可通过分页切换到下一页继续练习。
                   </p>
                 </div>
                 <span className="rounded-full bg-brand-50 px-3 py-2 text-xs font-black text-brand-700">
-                  当前第 {Math.max(activeStageIndex + 1, 1)} 站
+                  当前第 {Math.max(activeStageIndex + 1, 1)} 页
                 </span>
               </div>
 
@@ -350,7 +416,7 @@ export default function StudentPracticePage() {
                     <button
                       key={stage.title}
                       type="button"
-                      onClick={() => handleSelectQuestion(stage.startIndex)}
+                      onClick={() => handleSelectStage(stage.stageIndex)}
                       className={`rounded-[1.2rem] border px-4 py-4 text-left transition ${
                         isActiveStage
                           ? 'border-brand-300 bg-brand-50 shadow-[0_10px_20px_rgba(63,81,181,0.12)]'
@@ -366,7 +432,7 @@ export default function StudentPracticePage() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">
-                        {stage.wrong > 0 ? `本阶段有 ${stage.wrong} 题待订正` : '当前阶段继续保持'}
+                        {stage.wrong > 0 ? `本页有 ${stage.wrong} 题待订正` : '当前页继续保持'}
                       </p>
                     </button>
                   );
@@ -534,8 +600,32 @@ export default function StudentPracticePage() {
 
             <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
               <p className="text-sm font-black text-brand-700">题目导航</p>
+              {stageSummaries.length > 1 ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] bg-slate-50 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStage(activeStageIndex - 1)}
+                    disabled={activeStageIndex <= 0}
+                    className="math-button-secondary rounded-[0.9rem] px-4 py-2 text-xs font-extrabold text-slate-700 disabled:opacity-50"
+                  >
+                    上一页
+                  </button>
+                  <span className="text-sm font-black text-slate-700">
+                    第 {Math.max(activeStageIndex + 1, 1)} 页 / 共 {stageSummaries.length} 页
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStage(activeStageIndex + 1)}
+                    disabled={activeStageIndex >= stageSummaries.length - 1}
+                    className="math-button-secondary rounded-[0.9rem] px-4 py-2 text-xs font-extrabold text-slate-700 disabled:opacity-50"
+                  >
+                    下一页
+                  </button>
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
-                {questions.map((question, index) => {
+                {visibleQuestions.map((question, localIndex) => {
+                  const index = activeStage ? activeStage.startIndex + localIndex : localIndex;
                   const questionStatus = statusMap.get(question.id) ?? 'UNANSWERED';
                   const active = index === activeIndex;
 

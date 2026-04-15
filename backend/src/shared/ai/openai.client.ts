@@ -159,21 +159,18 @@ export class OpenAiClient {
     }
 
     try {
-      const completion = await this.visionClient.chat.completions.create({
+      const response = await (this.visionClient as any).responses.create({
         model: this.visionModel,
-        temperature: 0.1,
-        messages: [
+        input: [
           {
             role: 'user',
             content: [
               {
-                type: 'image_url',
-                image_url: {
-                  url: input.imageDataUrl,
-                },
+                type: 'input_image',
+                image_url: input.imageDataUrl,
               },
               {
-                type: 'text',
+                type: 'input_text',
                 text: [
                   '请识别这道小学数学题。',
                   '优先返回 JSON，字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
@@ -183,12 +180,12 @@ export class OpenAiClient {
                   '如果无法严格返回 JSON，也请至少返回完整题干、选项和人工确认提示。',
                 ].join('\n'),
               },
-            ] as any,
+            ],
           },
         ],
       });
 
-      const raw = completion.choices[0]?.message?.content;
+      const raw = this.extractResponsesText(response);
       if (!raw) {
         return this.buildOcrFallback(input, '图片识别结果为空，请人工确认题干后继续。');
       }
@@ -322,27 +319,21 @@ export class OpenAiClient {
     }
 
     try {
-      const completion = await this.visionClient.chat.completions.create({
+      const response = await (this.visionClient as any).responses.create({
         model: this.visionModel,
-        temperature: 0.2,
-        messages: [
-          {
-            role: 'system',
-            content:
-              '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
-          },
+        input: [
           {
             role: 'user',
             content: [
               {
-                type: 'image_url',
-                image_url: {
-                  url: input.imageDataUrl,
-                },
+                type: 'input_image',
+                image_url: input.imageDataUrl,
               },
               {
-                type: 'text',
+                type: 'input_text',
                 text: [
+                  '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。',
+                  '字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
                   `年级：${input.grade ?? '未知'}`,
                   `题型：${input.questionType ?? '未指定'}`,
                   `补充提示：${input.manualHint?.trim() || input.originalQuestion || '无'}`,
@@ -351,12 +342,12 @@ export class OpenAiClient {
                   '如果无法严格返回 JSON，也至少给出完整题意理解、分步骤讲解、最终答案和知识点。',
                 ].join('\n'),
               },
-            ] as any,
+            ],
           },
         ],
       });
 
-      const raw = completion.choices[0]?.message?.content;
+      const raw = this.extractResponsesText(response);
       if (!raw) {
         return this.buildFallback(input, '视觉模型未返回可用讲解，本次先返回基础讲解。');
       }
@@ -598,6 +589,38 @@ export class OpenAiClient {
     for (const chunk of chunks) {
       onChunk(chunk);
     }
+  }
+
+  private extractResponsesText(response: any) {
+    if (!response) {
+      return '';
+    }
+
+    if (typeof response.output_text === 'string' && response.output_text.trim()) {
+      return response.output_text.trim();
+    }
+
+    const output = Array.isArray(response.output) ? response.output : [];
+    const textParts: string[] = [];
+
+    for (const item of output) {
+      const contents = Array.isArray(item?.content) ? item.content : [];
+      for (const contentItem of contents) {
+        if (typeof contentItem?.text === 'string' && contentItem.text.trim()) {
+          textParts.push(contentItem.text.trim());
+          continue;
+        }
+
+        if (
+          typeof contentItem?.output_text === 'string' &&
+          contentItem.output_text.trim()
+        ) {
+          textParts.push(contentItem.output_text.trim());
+        }
+      }
+    }
+
+    return textParts.join('\n').trim();
   }
 
   private normalizeStructuredAnswer(

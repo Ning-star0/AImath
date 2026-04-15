@@ -56,9 +56,6 @@ export default function TeacherStudentsPage() {
       try {
         const response = await teacherService.getStudents();
         setData(response);
-        if (response.list[0]) {
-          setSelectedStudentId(response.list[0].id);
-        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : '学生列表加载失败。');
       }
@@ -74,6 +71,7 @@ export default function TeacherStudentsPage() {
 
     const loadReport = async () => {
       setLoadingReport(true);
+      setSelectedReport(null);
       try {
         const report = await teacherService.getStudentReport(selectedStudentId);
         setSelectedReport(report);
@@ -418,6 +416,15 @@ export default function TeacherStudentsPage() {
                   </div>
                 </div>
               </section>
+            </div>
+          ) : loadingReport && selectedStudentId ? (
+            <div className="flex min-h-[420px] items-center justify-center rounded-[1.8rem] border border-dashed border-brand-100 bg-white px-6 py-10 text-center">
+              <div>
+                <h3 className="font-math-display text-3xl font-extrabold text-ink">正在加载学生画像</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  正在整理该学生的练习、错题与 AI 学情分析，请稍候。
+                </p>
+              </div>
             </div>
           ) : (
             <div className="flex min-h-[420px] items-center justify-center rounded-[1.8rem] border border-dashed border-brand-100 bg-white px-6 py-10 text-center">

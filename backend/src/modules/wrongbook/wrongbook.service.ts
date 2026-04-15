@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ArchiveWrongQuestionDto } from './dto/archive-wrong-question.dto';
 import { QueryWrongbookDto } from './dto/query-wrongbook.dto';
 import { RetryWrongQuestionDto } from './dto/retry-wrong-question.dto';
+import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
 
 interface AuthUser {
   id: string;
@@ -13,7 +14,10 @@ interface AuthUser {
 
 @Injectable()
 export class WrongbookService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentMemoryService: StudentMemoryService,
+  ) {}
 
   async list(user: AuthUser, query: QueryWrongbookDto) {
     const where: Prisma.WrongQuestionWhereInput = {
@@ -144,21 +148,53 @@ export class WrongbookService {
     const normalizedCorrectAnswer = wrongQuestion.question.answer.replace(/\s+/g, '').trim().toUpperCase();
     const resolved = normalizedStudentAnswer === normalizedCorrectAnswer;
 
+    if (resolved) {
+      await this.prisma.wrongQuestion.delete({
+        where: { id: wrongQuestion.id },
+      });
+
+      if (user.student?.id) {
+        await this.studentMemoryService.refreshStudentMemory({
+          studentId: user.student.id,
+          subject: wrongQuestion.question.subject,
+          eventType: 'EXERCISE_SUBMIT',
+        });
+      }
+
+      return {
+        id: wrongQuestion.id,
+        resolved: true,
+        removedFromWrongbook: true,
+        studentAnswer: payload.answer,
+        correctAnswer: wrongQuestion.question.answer,
+        nextAction: '这道题已经做对，已从错题本中移除。',
+      };
+    }
+
     const updatedWrongQuestion = await this.prisma.wrongQuestion.update({
       where: { id: wrongQuestion.id },
       data: {
-        resolved,
+        resolved: false,
         lastWrongAnswer: payload.answer,
-        reviewStatus: resolved ? 'MASTERED' : 'RETRY_REQUIRED',
+        reviewStatus: 'RETRY_REQUIRED',
       },
     });
 
+    if (user.student?.id) {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId: user.student.id,
+        subject: wrongQuestion.question.subject,
+        eventType: 'EXERCISE_SUBMIT',
+      });
+    }
+
     return {
       id: updatedWrongQuestion.id,
-      resolved,
+      resolved: false,
+      removedFromWrongbook: false,
       studentAnswer: payload.answer,
       correctAnswer: wrongQuestion.question.answer,
-      nextAction: resolved ? '这道错题已经掌握，可以移出重点复习列表。' : '建议继续重练，并结合解析再次理解题意。',
+      nextAction: '建议继续重练，并结合解析再次理解题意。',
     };
   }
 

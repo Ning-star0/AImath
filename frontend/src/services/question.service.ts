@@ -6,6 +6,7 @@ export interface QuestionQuery {
   difficulty?: number;
   questionType?: string;
   subject?: string;
+  take?: number;
 }
 
 export const questionService = {

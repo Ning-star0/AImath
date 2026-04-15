@@ -38,8 +38,7 @@ export function AnswerResultCard({
   const showRiskNotice = shouldShowRiskNotice(result?.riskNotice);
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/92 shadow-card">
-      <div className="pointer-events-none absolute right-6 top-6 h-12 w-12 rounded-full bg-violet-100/70 blur-2xl" />
+    <section className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-card">
       <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div>
           <div className="mb-2 inline-flex rounded-full bg-brand-50/90 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
@@ -55,9 +54,9 @@ export function AnswerResultCard({
         </span>
       </div>
 
-      <div className="max-h-[68vh] overflow-y-auto bg-[radial-gradient(circle_at_top_right,_rgba(196,181,253,0.22),_transparent_28%),radial-gradient(circle_at_bottom_left,_rgba(134,239,172,0.18),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.78),rgba(247,250,249,0.98))] px-6 py-6 sm:px-7">
+      <div className="max-h-[68vh] overflow-y-auto bg-white px-6 py-6 sm:px-7">
         {!result && !hasPreview ? (
-          <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 px-6 py-10 text-center shadow-sm">
+          <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-sky-100 text-3xl shadow-sm">
               题
             </div>

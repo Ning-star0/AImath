@@ -178,20 +178,48 @@ export default function AdminPage() {
         <article className="math-card rounded-[2rem] px-6 py-6">
           <h3 className="font-math-display text-2xl font-extrabold text-ink">AI 配置状态</h3>
           <div className="mt-5 space-y-4">
-            {[
-              ['服务提供方', aiConfig?.provider ?? '未读取'],
-              ['模型名称', aiConfig?.model ?? '未读取'],
-              ['Prompt 版本', aiConfig?.promptVersion ?? '未读取'],
-              ['Base URL', aiConfig?.baseUrl ?? '默认值'],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-[1.4rem] border border-slate-100 bg-white px-5 py-4 shadow-sm"
-              >
-                <p className="text-sm font-semibold text-slate-500">{label}</p>
-                <p className="mt-2 break-all text-sm font-bold text-ink">{value}</p>
+            <div className="rounded-[1.4rem] border border-slate-100 bg-white px-5 py-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-500">统一配置版本</p>
+              <p className="mt-2 break-all text-sm font-bold text-ink">
+                {aiConfig?.provider ?? '未读取'} / {aiConfig?.promptVersion ?? '未读取'}
+              </p>
+            </div>
+
+            <div className="rounded-[1.4rem] border border-slate-100 bg-white px-5 py-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-500">文字讲题模型</p>
+              <div className="mt-3 space-y-2 text-sm text-ink">
+                <p>
+                  <span className="font-semibold text-slate-500">服务提供方：</span>
+                  {aiConfig?.textConfig.provider ?? '未读取'}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-500">模型名称：</span>
+                  {aiConfig?.textConfig.model ?? '未读取'}
+                </p>
+                <p className="break-all">
+                  <span className="font-semibold text-slate-500">Base URL：</span>
+                  {aiConfig?.textConfig.baseUrl ?? '默认值'}
+                </p>
               </div>
-            ))}
+            </div>
+
+            <div className="rounded-[1.4rem] border border-slate-100 bg-white px-5 py-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-500">图片识别模型</p>
+              <div className="mt-3 space-y-2 text-sm text-ink">
+                <p>
+                  <span className="font-semibold text-slate-500">服务提供方：</span>
+                  {aiConfig?.visionConfig.provider ?? '未读取'}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-500">模型名称：</span>
+                  {aiConfig?.visionConfig.model ?? '未读取'}
+                </p>
+                <p className="break-all">
+                  <span className="font-semibold text-slate-500">Base URL：</span>
+                  {aiConfig?.visionConfig.baseUrl ?? '默认值'}
+                </p>
+              </div>
+            </div>
           </div>
         </article>
       </section>

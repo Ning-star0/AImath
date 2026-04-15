@@ -403,11 +403,26 @@ export class AdminService {
   }
 
   getAiConfig() {
+    const textBaseUrl = process.env.OPENAI_BASE_URL ?? null;
+    const textModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+    const visionBaseUrl =
+      process.env.OPENAI_VISION_BASE_URL ?? textBaseUrl;
+    const visionModel =
+      process.env.OPENAI_VISION_MODEL ?? textModel;
+
     return {
       provider: 'OpenAI-compatible',
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
-      baseUrl: process.env.OPENAI_BASE_URL ?? null,
       promptVersion: 'stage-4-v2',
+      textConfig: {
+        provider: 'DeepSeek',
+        model: textModel,
+        baseUrl: textBaseUrl,
+      },
+      visionConfig: {
+        provider: 'Doubao Ark',
+        model: visionModel,
+        baseUrl: visionBaseUrl,
+      },
       placeholders: {
         moderation: '鍚庣画澧炲姞鍥炵瓟瀹℃牳銆佸勾绾ц竟鐣屾牎楠屽拰椋庨櫓绛夌骇閰嶇疆銆',
         rateLimit: '鍚庣画澧炲姞鐢ㄦ埛绾у拰鎺ュ彛绾ч檺娴侀厤缃€',
@@ -625,4 +640,3 @@ export class AdminService {
     };
   }
 }
-

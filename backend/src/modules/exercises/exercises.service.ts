@@ -85,6 +85,13 @@ export class ExercisesService {
 
     const totalCount = judgedItems.length;
     const correctCount = judgedItems.filter((item) => item.isCorrect).length;
+    const correctQuestionIds = [
+      ...new Set(
+        judgedItems
+          .filter((item) => item.isCorrect)
+          .map((item) => item.question.id),
+      ),
+    ];
     const wrongItems = judgedItems.filter((item) => !item.isCorrect);
     const accuracyRate =
       totalCount === 0 ? 0 : Number(((correctCount / totalCount) * 100).toFixed(2));
@@ -128,6 +135,19 @@ export class ExercisesService {
           details: true,
         },
       });
+
+      if (correctQuestionIds.length > 0) {
+        await tx.wrongQuestion.deleteMany({
+          where: {
+            userId: user.id,
+            questionId: {
+              in: correctQuestionIds,
+            },
+            resolved: false,
+            archivedAt: null,
+          },
+        });
+      }
 
       for (const item of wrongItems) {
         const primaryKnowledgePoint =

@@ -7,6 +7,7 @@ import { QuestionInputCard } from '@/components/ai-qa/question-input-card';
 import { PageShell } from '@/components/base/page-shell';
 import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
 import { AuthRequiredState } from '@/components/states/platform-states';
+import { awardStars } from '@/lib/game-rewards';
 import { aiService } from '@/services/ai.service';
 import { authService } from '@/services/auth.service';
 import { useUserStore } from '@/store/use-user-store';
@@ -102,8 +103,6 @@ export default function StudentAiQaPage() {
   const [selectedImageDataUrl, setSelectedImageDataUrl] = useState('');
   const [ocrDraftText, setOcrDraftText] = useState('');
   const [ocrStatus, setOcrStatus] = useState('');
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrOptions, setOcrOptions] = useState<string[]>([]);
 
   const previewLines = useMemo(() => buildPreviewLines(streamPreview), [streamPreview]);
 
@@ -198,6 +197,7 @@ export default function StudentAiQaPage() {
       );
 
       setResult(data);
+      awardStars(currentUser?.id, 2);
       return true;
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'AI 讲题失败，请稍后再试。');
@@ -211,57 +211,6 @@ export default function StudentAiQaPage() {
   const onSubmit = handleSubmit(async (values) => {
     await runAiExplain(values.originalQuestion);
   });
-
-  const handleOcrPreview = async () => {
-    setOcrLoading(true);
-    setSubmitError('');
-    setOcrStatus('正在识别题干...');
-
-    try {
-      const preview = await aiService.ocrPreview({
-        imageName: selectedImageName || undefined,
-        imageDataUrl: selectedImageDataUrl || undefined,
-        manualText: ocrDraftText || undefined,
-        questionType,
-        grade: currentUser?.student?.grade ?? currentUser?.grade ?? 3,
-      });
-
-      setOcrDraftText(preview.recognizedText);
-      setOcrOptions(preview.options);
-      setQuestionType(preview.questionType);
-      if (preview.options.length > 0) {
-        setOptionsText(preview.options.join('\n'));
-      }
-      setOcrStatus(preview.note);
-    } catch (error) {
-      setOcrStatus(error instanceof Error ? error.message : '识别失败，请手动补充题干后再试。');
-    } finally {
-      setOcrLoading(false);
-    }
-  };
-
-  const handleUseOcrResult = async () => {
-    if (!ocrDraftText.trim() && !selectedImageDataUrl) {
-      setSubmitError('请先上传图片，或手动补充题干后再继续。');
-      return;
-    }
-
-    const nextQuestionText = ocrDraftText.trim() || '图片数学题';
-    setValue('originalQuestion', nextQuestionText);
-
-    if (ocrOptions.length > 0 && !optionsText.trim()) {
-      setOptionsText(ocrOptions.join('\n'));
-    }
-
-    const helperText = selectedImageDataUrl
-      ? '已优先根据识别出的题干直接讲题，跳过再次整图识别，速度会更快。'
-      : '已根据识别结果直接发起讲题。';
-
-    await runAiExplain(
-      nextQuestionText,
-      selectedImageDataUrl ? '已根据图片和识别结果直接发起讲题。' : '已根据识别结果直接发起讲题。',
-    );
-  };
 
   const handleUseSimilarQuestion = (question: string) => {
     setValue('originalQuestion', question);
@@ -323,27 +272,18 @@ export default function StudentAiQaPage() {
             />
 
             <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-math-display text-2xl font-extrabold text-ink">拍照答疑与识题</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    识别题干只作为辅助确认。上传图片后，你可以先看识别结果，也可以直接使用识别结果讲题。
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleOcrPreview()}
-                  disabled={ocrLoading}
-                  className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 disabled:opacity-60"
-                >
-                  {ocrLoading ? '识别中...' : '识别题干'}
-                </button>
+              <div>
+                <p className="font-math-display text-2xl font-extrabold text-ink">拍照答疑与识题</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  上传图片后，直接点击上面的“开始讲解”即可。如果题目比较模糊，也可以先在下面补充题干文字。
+                </p>
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-500">图片上传 / 拍照入口</span>
+                  <span className="text-sm font-semibold text-slate-500">上传题目照片</span>
                   <input
+                    id="ai-qa-image-upload"
                     type="file"
                     accept="image/*"
                     capture="environment"
@@ -383,38 +323,39 @@ export default function StudentAiQaPage() {
                       };
                       reader.readAsDataURL(file as Blob);
                     }}
-                    className="math-input"
+                    className="hidden"
                   />
+                  <label
+                    htmlFor="ai-qa-image-upload"
+                    className="group flex min-h-[128px] cursor-pointer flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-brand-200 bg-[linear-gradient(180deg,#F8FBFF,#FFFFFF)] px-5 py-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-[0_14px_30px_rgba(63,81,181,0.12)]"
+                  >
+                    <span className="inline-flex rounded-full bg-brand-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm transition group-hover:bg-brand-700">
+                      选择图片或直接拍照
+                    </span>
+                    <span className="mt-3 text-sm leading-7 text-slate-600">
+                      支持手机直接拍照，也支持从相册上传作业图片。
+                    </span>
+                    {selectedImageName ? (
+                      <span className="mt-3 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+                        已选择：{selectedImageName}
+                      </span>
+                    ) : null}
+                  </label>
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-500">OCR 识别结果人工确认</span>
+                  <span className="text-sm font-semibold text-slate-500">题干补充（可选）</span>
                   <textarea
                     value={ocrDraftText}
                     onChange={(event) => setOcrDraftText(event.target.value)}
                     className="math-input min-h-[128px]"
-                    placeholder="如果识别不完整，可以先在这里补充题干，再点“使用识别结果讲题”。"
+                    placeholder="如果图片里的题目不够清楚，可以先在这里补充题干，再点击上面的“开始讲解”。"
                   />
                 </label>
               </div>
 
               <div className="mt-4 rounded-[1.2rem] bg-[#F8FBFF] px-4 py-4 text-sm leading-7 text-slate-600">
-                {ocrStatus || '这里会显示 OCR 状态、识别说明和失败兜底提示。'}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void handleUseOcrResult()}
-                  className="math-button-primary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white"
-                >
-                  使用识别结果讲题
-                </button>
-                {selectedImageName ? (
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-                    当前图片：{selectedImageName}
-                  </span>
-                ) : null}
+                {ocrStatus || '图片准备好以后，直接点击上面的“开始讲解”即可。'}
               </div>
             </div>
           </article>

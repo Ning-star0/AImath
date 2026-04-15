@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { EinsteinMentor } from '@/components/brand/einstein-mentor';
 import { PageShell } from '@/components/base/page-shell';
-import { AuthRequiredState } from '@/components/states/platform-states';
+import { AuthRequiredState, PermissionDeniedState } from '@/components/states/platform-states';
 import { ProgressBar } from '@/components/student-home/progress-bar';
 import { getLevelTitle, getRewardProgress, readRewardState } from '@/lib/game-rewards';
 import { useUserStore } from '@/store/use-user-store';
@@ -26,17 +26,36 @@ export default function StudentProfilePage() {
       return;
     }
 
-    const stored = readRewardState(currentUser.id);
-    setRewardState({
-      totalStars: stored.totalStars,
-      streakDays: stored.streakDays,
-    });
+    const refreshRewardState = () => {
+      const stored = readRewardState(currentUser.id);
+      setRewardState({
+        totalStars: stored.totalStars,
+        streakDays: stored.streakDays,
+      });
+    };
+
+    refreshRewardState();
+    window.addEventListener('focus', refreshRewardState);
+    document.addEventListener('visibilitychange', refreshRewardState);
+
+    return () => {
+      window.removeEventListener('focus', refreshRewardState);
+      document.removeEventListener('visibilitychange', refreshRewardState);
+    };
   }, [currentUser?.id]);
 
   if (!accessToken && !currentUser) {
     return (
       <PageShell title="我的数学成长档案" description="查看自己的学习身份、班级信息与成长进度。">
         <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="我的数学成长档案" description="查看自己的学习身份、班级信息与成长进度。">
+        <PermissionDeniedState />
       </PageShell>
     );
   }

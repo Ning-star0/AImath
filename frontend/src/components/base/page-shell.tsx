@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { getRoleProfilePath } from '@/lib/role-route';
 import { useUserStore } from '@/store/use-user-store';
+import type { UserRole } from '@/types/api';
 
 interface PageShellProps {
   title: string;
@@ -22,7 +23,10 @@ const studentNavItems = [
   { href: '/student/reports', label: '学习报告' },
 ];
 
-const familyNavItems = [{ href: '/family', label: '孩子总览' }];
+const familyNavItems = [
+  { href: '/family', label: '孩子总览' },
+  { href: '/student/ai-qa', label: 'AI 讲题' },
+];
 
 function getUserDisplayName(displayName?: string | null) {
   if (!displayName) {
@@ -32,7 +36,23 @@ function getUserDisplayName(displayName?: string | null) {
   return displayName.length > 6 ? `${displayName.slice(0, 6)}...` : displayName;
 }
 
-function getRoleLabel(pathname: string) {
+function getRoleLabel(pathname: string, role?: UserRole | null) {
+  if (role === 'ADMIN') {
+    return '管理端';
+  }
+
+  if (role === 'TEACHER') {
+    return '教师端';
+  }
+
+  if (role === 'PARENT') {
+    return '家长端';
+  }
+
+  if (role === 'STUDENT') {
+    return '学生端';
+  }
+
   if (pathname.startsWith('/admin')) {
     return '管理端';
   }
@@ -48,7 +68,15 @@ function getRoleLabel(pathname: string) {
   return '学生端';
 }
 
-function getDefaultNavItems(pathname: string) {
+function getDefaultNavItems(pathname: string, role?: UserRole | null) {
+  if (role === 'PARENT') {
+    return familyNavItems;
+  }
+
+  if (role === 'STUDENT') {
+    return studentNavItems;
+  }
+
   if (pathname.startsWith('/family')) {
     return familyNavItems;
   }
@@ -56,7 +84,15 @@ function getDefaultNavItems(pathname: string) {
   return studentNavItems;
 }
 
-function getRoleQuickAction(pathname: string) {
+function getRoleQuickAction(pathname: string, role?: UserRole | null) {
+  if (role === 'PARENT') {
+    return { href: '/family', label: '查看孩子数据' };
+  }
+
+  if (role === 'STUDENT') {
+    return { href: '/student/practice', label: '开始今日练习' };
+  }
+
   if (pathname.startsWith('/teacher')) {
     return { href: '/teacher/students', label: '查看学生列表' };
   }
@@ -113,14 +149,15 @@ export function PageShell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const mergedNavItems = navItems ?? getDefaultNavItems(pathname);
+  const mergedNavItems = navItems ?? getDefaultNavItems(pathname, currentUser?.role);
   const accountLabel = useMemo(
     () => getUserDisplayName(currentUser?.displayName),
     [currentUser?.displayName],
   );
   const profilePath = getRoleProfilePath(currentUser?.role);
-  const roleLabel = getRoleLabel(pathname);
-  const quickAction = getRoleQuickAction(pathname);
+  const roleLabel = getRoleLabel(pathname, currentUser?.role);
+  const quickAction = getRoleQuickAction(pathname, currentUser?.role);
+  const shouldShowDescription = showPageIntro && !pathname.startsWith('/student');
 
   const handleLogout = () => {
     clearSession();
@@ -129,15 +166,22 @@ export function PageShell({
   };
 
   const supportLinks =
-    pathname.startsWith('/student') || pathname.startsWith('/family')
+    currentUser?.role === 'ADMIN' || pathname.startsWith('/admin')
       ? [
           { href: '/teacher', label: '教师端' },
-          { href: '/admin', label: '管理端' },
-        ]
-      : [
           { href: '/student', label: '学生端' },
           { href: '/family', label: '家长端' },
-        ];
+        ]
+      : currentUser?.role === 'TEACHER' || pathname.startsWith('/teacher')
+        ? [
+            { href: '/student', label: '学生端' },
+            { href: '/family', label: '家长端' },
+            { href: '/admin', label: '管理端' },
+          ]
+        : [
+            { href: '/teacher', label: '教师端' },
+            { href: '/admin', label: '管理端' },
+          ];
 
   return (
     <div className="storybook-scene relative mx-auto min-h-screen max-w-7xl px-3 py-3 sm:px-5 lg:px-6">
@@ -152,7 +196,7 @@ export function PageShell({
               <h1 className="font-math-display text-2xl font-extrabold text-ink sm:text-3xl">
                 {showPageIntro ? title : '爱因数学星球'}
               </h1>
-              {showPageIntro ? (
+              {shouldShowDescription ? (
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{description}</p>
               ) : null}
             </div>

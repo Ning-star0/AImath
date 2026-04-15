@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { CompactAiResult } from '@/components/ai-qa/compact-ai-result';
 import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
 import { PageShell } from '@/components/base/page-shell';
 import {
@@ -8,9 +9,10 @@ import {
   NetworkErrorState,
   NoReportState,
   PageLoadErrorState,
+  PermissionDeniedState,
   SessionExpiredState,
 } from '@/components/states/platform-states';
-import { getLevelTitle, getRewardProgress, readRewardState } from '@/lib/game-rewards';
+import { getLevelTitle, getRewardProgress, markLearningActive, readRewardState } from '@/lib/game-rewards';
 import { getPlatformErrorKind } from '@/lib/platform-errors';
 import { aiService } from '@/services/ai.service';
 import { authService } from '@/services/auth.service';
@@ -43,6 +45,8 @@ export default function StudentReportsPage() {
   const [error, setError] = useState('');
   const [aiSummary, setAiSummary] = useState<Awaited<ReturnType<typeof aiService.askQuestion>> | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [weakPointInsight, setWeakPointInsight] = useState('');
+  const [weakPointRefreshing, setWeakPointRefreshing] = useState(false);
   const [rewardState, setRewardState] = useState({
     totalStars: 0,
     streakDays: 0,
@@ -83,20 +87,74 @@ export default function StudentReportsPage() {
   }, []);
 
   useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    const refreshReport = async () => {
+      try {
+        const data = await reportService.getOverview();
+        setReport(data);
+      } catch {
+        // ignore focus refresh errors
+      }
+    };
+
+    window.addEventListener('focus', refreshReport);
+    document.addEventListener('visibilitychange', refreshReport);
+
+    return () => {
+      window.removeEventListener('focus', refreshReport);
+      document.removeEventListener('visibilitychange', refreshReport);
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
     if (!currentUser?.id) {
       return;
     }
 
-    const stored = readRewardState(currentUser.id);
-    setRewardState({
-      totalStars: stored.totalStars,
-      streakDays: stored.streakDays,
-    });
+    const refreshRewardState = () => {
+      const stored = readRewardState(currentUser.id);
+      setRewardState({
+        totalStars: stored.totalStars,
+        streakDays: stored.streakDays,
+      });
+    };
+
+    refreshRewardState();
+    window.addEventListener('focus', refreshRewardState);
+    document.addEventListener('visibilitychange', refreshRewardState);
+
+    return () => {
+      window.removeEventListener('focus', refreshRewardState);
+      document.removeEventListener('visibilitychange', refreshRewardState);
+    };
   }, [currentUser?.id]);
 
   const rewardProgress = useMemo(() => getRewardProgress(rewardState.totalStars), [rewardState.totalStars]);
   const levelTitle = useMemo(() => getLevelTitle(rewardProgress.level), [rewardProgress.level]);
   const weakPoint = report ? getWeakKnowledgePoint(report) : null;
+
+  useEffect(() => {
+    setWeakPointInsight('');
+  }, [weakPoint?.knowledgePointId]);
+
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="学习报告" description="查看最近练习结果、知识点掌握度和 AI 学习总结。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="学习报告" description="查看最近练习结果、知识点掌握度和 AI 学习总结。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
 
   const handleGenerateAiSummary = async () => {
     if (!report) {
@@ -106,13 +164,52 @@ export default function StudentReportsPage() {
     setAiSummaryLoading(true);
 
     try {
+      const refreshedRewardState = markLearningActive(currentUser?.id);
+      setRewardState({
+        totalStars: refreshedRewardState.totalStars,
+        streakDays: refreshedRewardState.streakDays,
+      });
+
+      const weakestPoints = [...report.masteryByKnowledgePoint]
+        .sort((left, right) => left.correctRate - right.correctRate)
+        .slice(0, 3)
+        .map(
+          (item, index) =>
+            `${index + 1}. ${item.knowledgePointName}：正确率 ${item.correctRate}%，做错 ${item.wrongCount} 题，共做 ${item.total} 题`,
+        )
+        .join('\n');
+
+      const strongestPoints = [...report.masteryByKnowledgePoint]
+        .sort((left, right) => right.correctRate - left.correctRate)
+        .slice(0, 2)
+        .map(
+          (item, index) =>
+            `${index + 1}. ${item.knowledgePointName}：正确率 ${item.correctRate}%，共做 ${item.total} 题`,
+        )
+        .join('\n');
+
       const response = await aiService.askQuestion({
-        originalQuestion: `请根据以下学习数据生成一段适合小学生阅读的学习总结：
+        originalQuestion: `请根据以下学习数据，生成一份详细的学习总结。要求：
+1. 用 4 到 6 条分点步骤输出，适合小学阶段学生和家长阅读。
+2. finalAnswer 必须写成一段完整总结，包含“整体表现”“当前薄弱点”“下一步建议”三个部分。
+3. 不要空泛鼓励，要结合具体数据分析。
+4. 语言要清晰、具体、适龄。
+
+学习数据如下：
 总题数：${report.totalQuestions}
 答对：${report.correctCount}
 答错：${report.wrongCount}
 正确率：${report.accuracyRate}%
-AI讲题次数：${report.aiQaCount ?? 0}`,
+AI讲题次数：${report.aiQaCount ?? 0}
+当前等级：Lv.${rewardProgress.level}
+累计成长星：${rewardState.totalStars}
+连续学习：${rewardState.streakDays} 天
+
+当前薄弱知识点：
+${weakestPoints || '暂无'}
+
+当前表现较好的知识点：
+${strongestPoints || '暂无'}`,
         grade: currentUser?.grade ?? currentUser?.student?.grade ?? 3,
         context: {
           mode: 'LEARNING_SUMMARY',
@@ -125,6 +222,46 @@ AI讲题次数：${report.aiQaCount ?? 0}`,
       setError(loadError instanceof Error ? loadError.message : 'AI 学习总结生成失败，请稍后再试。');
     } finally {
       setAiSummaryLoading(false);
+    }
+  };
+
+  const handleRefreshWeakPoint = async () => {
+    setWeakPointRefreshing(true);
+
+    try {
+      const latestReport = await reportService.getOverview();
+      setReport(latestReport);
+
+      const latestWeakPoint = getWeakKnowledgePoint(latestReport);
+      if (!latestWeakPoint) {
+        setWeakPointInsight('');
+        return;
+      }
+
+      const response = await aiService.askQuestion({
+        originalQuestion: `请根据以下学习数据，用 2 到 3 条简短建议分析当前最薄弱知识点。要求：
+1. 每条建议都要具体，适合家长或学生立刻执行。
+2. finalAnswer 用一段话总结“为什么它是当前最薄弱点、该怎么补”。
+
+知识点：${latestWeakPoint.knowledgePointName}
+正确率：${latestWeakPoint.correctRate}%
+答对：${latestWeakPoint.correctCount}
+答错：${latestWeakPoint.wrongCount}
+总题数：${latestWeakPoint.total}
+总做题数：${latestReport.totalQuestions}
+总正确率：${latestReport.accuracyRate}%`,
+        grade: currentUser?.grade ?? currentUser?.student?.grade ?? 3,
+        context: {
+          mode: 'LEARNING_SUMMARY',
+          source: 'reports-weak-point-refresh',
+        },
+      });
+
+      setWeakPointInsight(response.finalAnswer);
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : '薄弱点刷新失败，请稍后再试。');
+    } finally {
+      setWeakPointRefreshing(false);
     }
   };
 
@@ -195,7 +332,17 @@ AI讲题次数：${report.aiQaCount ?? 0}`,
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-                <p className="text-sm font-black text-brand-700">当前薄弱点</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-brand-700">当前薄弱点</p>
+                  <button
+                    type="button"
+                    onClick={() => void handleRefreshWeakPoint()}
+                    disabled={weakPointRefreshing}
+                    className="math-button-secondary rounded-[0.9rem] px-3 py-2 text-xs font-extrabold text-slate-700 disabled:opacity-60"
+                  >
+                    {weakPointRefreshing ? '刷新中' : '刷新分析'}
+                  </button>
+                </div>
                 <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">
                   {weakPoint?.knowledgePointName ?? '暂无'}
                 </p>
@@ -204,6 +351,11 @@ AI讲题次数：${report.aiQaCount ?? 0}`,
                     ? `当前正确率 ${weakPoint.correctRate}% ，建议优先安排对应错题和专项练习。`
                     : '继续完成练习后，这里会生成更准确的分析。'}
                 </p>
+                {weakPointInsight ? (
+                  <div className="mt-3 rounded-[1rem] bg-brand-50/60 px-4 py-3 text-sm leading-7 text-slate-700">
+                    {weakPointInsight}
+                  </div>
+                ) : null}
               </div>
               <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
                 <p className="text-sm font-black text-brand-700">成长激励</p>
@@ -242,9 +394,12 @@ AI讲题次数：${report.aiQaCount ?? 0}`,
               </div>
 
               {aiSummary ? (
-                <div className="mt-4 rounded-[1.4rem] border border-brand-100 bg-brand-50/50 px-4 py-4">
-                  <p className="text-sm leading-7 text-slate-700">{aiSummary.finalAnswer}</p>
-                </div>
+                <CompactAiResult
+                  title="本阶段学习总结"
+                  result={aiSummary}
+                  loading={false}
+                  variant="summary"
+                />
               ) : (
                 <div className="mt-4 rounded-[1.4rem] border border-dashed border-brand-200 bg-brand-50/30 px-4 py-6 text-sm text-slate-500">
                   点击“生成总结”后，这里会出现本阶段学习总结。

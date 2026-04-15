@@ -10,6 +10,7 @@ import {
   NetworkErrorState,
   NoWrongQuestionsState,
   PageLoadErrorState,
+  PermissionDeniedState,
   SessionExpiredState,
 } from '@/components/states/platform-states';
 import { getPlatformErrorKind } from '@/lib/platform-errors';
@@ -54,6 +55,17 @@ export default function WrongbookPage() {
   useEffect(() => {
     hydrateSession();
   }, [hydrateSession]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('resolved') === '1') {
+      setHelperMessage('这道错题已做对，已自动从错题本中移除。');
+    }
+  }, []);
 
   useEffect(() => {
     if (grade !== undefined) {
@@ -162,6 +174,14 @@ export default function WrongbookPage() {
     );
   }
 
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="错题本" description="集中复习做错的题目，先处理最需要回看的内容。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
+
   if (error && !listData) {
     const errorKind = getPlatformErrorKind(error);
 
@@ -204,7 +224,7 @@ export default function WrongbookPage() {
               </div>
               <h2 className="font-math-display text-3xl font-extrabold text-ink">先处理最需要回看的错题</h2>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                答错后系统会自动写入错题本。这里显示的是当前账号还未解决、且未归档的错题。
+                答错后系统会自动写入错题本；同一道题重新做对后，会自动从错题本中移除。这里显示的是当前账号还未解决、且未归档的错题。
               </p>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -217,8 +237,8 @@ export default function WrongbookPage() {
                   <p className="mt-2 text-3xl font-extrabold text-red-600">{urgentCount}</p>
                 </div>
                 <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">已掌握</p>
-                  <p className="mt-2 text-3xl font-extrabold text-emerald-600">{stats?.resolvedCount ?? 0}</p>
+                  <p className="text-sm text-slate-500">已归档</p>
+                  <p className="mt-2 text-3xl font-extrabold text-emerald-600">{stats?.archivedCount ?? 0}</p>
                 </div>
               </div>
             </div>

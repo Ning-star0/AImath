@@ -11,9 +11,9 @@ interface EinsteinTipCardProps {
 }
 
 const toneMap = {
-  blue: 'bg-[linear-gradient(180deg,#EEF4FF,#FFFFFF)] border-[#C7D2FE]',
-  green: 'bg-[linear-gradient(180deg,#F3FFF5,#FFFFFF)] border-[#B9DFC0]',
-  yellow: 'bg-[linear-gradient(180deg,#FFF9E8,#FFFFFF)] border-[#F0C786]',
+  blue: 'bg-white border-[#C7D2FE]',
+  green: 'bg-white border-[#B9DFC0]',
+  yellow: 'bg-white border-[#F0C786]',
 } as const;
 
 export function EinsteinTipCard({
@@ -26,7 +26,7 @@ export function EinsteinTipCard({
   return (
     <section className={`rounded-[1.6rem] border px-4 py-4 shadow-sm ${toneMap[tone]} ${className}`}>
       <div className="flex items-start gap-4">
-        <div className="shrink-0 rounded-[1.1rem] bg-white/90 p-2 shadow-sm">
+        <div className="shrink-0 rounded-[1.1rem] bg-white p-2 shadow-sm">
           <EinsteinMentor size="sm" mood={mood} />
         </div>
         <div className="min-w-0">

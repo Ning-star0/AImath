@@ -10,6 +10,7 @@ import {
   NetworkErrorState,
   NoLearningDataState,
   PageLoadErrorState,
+  PermissionDeniedState,
   SessionExpiredState,
 } from '@/components/states/platform-states';
 import { getPlatformErrorKind } from '@/lib/platform-errors';
@@ -21,12 +22,10 @@ import { useUserStore } from '@/store/use-user-store';
 import type { ReportOverviewResult, WrongQuestionItem } from '@/types/api';
 
 type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-type SubjectKey = 'MATH' | 'CHINESE' | 'ENGLISH';
+type SubjectKey = 'MATH';
 
-const subjectOptions: Array<{ value: SubjectKey; label: string; status: 'ACTIVE' | 'COMING_SOON' }> = [
+const subjectOptions: Array<{ value: SubjectKey; label: string; status: 'ACTIVE' }> = [
   { value: 'MATH', label: '数学', status: 'ACTIVE' },
-  { value: 'CHINESE', label: '语文', status: 'COMING_SOON' },
-  { value: 'ENGLISH', label: '英语', status: 'COMING_SOON' },
 ];
 
 function buildChallengeProfile(report: ReportOverviewResult | null) {
@@ -93,7 +92,7 @@ export default function StudentHomePage() {
         const [reportData, wrongbookData, questionData] = await Promise.all([
           reportService.getOverview(7),
           wrongbookService.getList({ grade, unresolvedOnly: true }),
-          questionService.getQuestionList({ grade, subject: selectedSubject }),
+          questionService.getQuestionList({ grade, subject: selectedSubject, take: 100 }),
         ]);
 
         setReport(reportData);
@@ -171,6 +170,14 @@ export default function StudentHomePage() {
     );
   }
 
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="学生学习中心" description="先完成今天最重要的一轮练习。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
+
   if (error) {
     const errorKind = getPlatformErrorKind(error);
 
@@ -199,31 +206,12 @@ export default function StudentHomePage() {
     <PageShell title="学生学习中心" description="先完成今天最重要的一轮练习。">
       <section className="portal-board px-5 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-6 xl:grid-cols-[1.22fr_0.78fr]">
-          <article className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-6 py-6 shadow-[0_18px_36px_rgba(255,193,7,0.10)]">
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              {subjectOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => option.status === 'ACTIVE' && setSelectedSubject(option.value)}
-                  className={`rounded-full px-4 py-2 text-sm font-extrabold ${
-                    selectedSubject === option.value
-                      ? 'bg-brand-600 text-white'
-                      : option.status === 'ACTIVE'
-                        ? 'bg-white text-slate-700 ring-1 ring-slate-200'
-                        : 'bg-slate-100 text-slate-400 ring-1 ring-slate-200'
-                  }`}
-                >
-                  {option.label}
-                  {option.status === 'COMING_SOON' ? ' · 即将开放' : ''}
-                </button>
-              ))}
-            </div>
-
+          <article className="rounded-[2rem] border border-[#F6D36A] bg-white px-6 py-6 shadow-[0_18px_36px_rgba(255,193,7,0.08)]">
             <div className="flex flex-wrap items-center gap-2">
               <span className={heroCopy.statusTone}>{heroCopy.statusLabel}</span>
               <span className="math-chip math-chip-success">{grade} 年级</span>
               <span className="math-chip math-chip-primary">Lv.{challengeProfile.level}</span>
+              <span className="math-chip math-chip-violet">数学</span>
             </div>
 
             <h2 className="mt-4 font-math-display text-4xl font-extrabold text-ink">
@@ -231,7 +219,7 @@ export default function StudentHomePage() {
             </h2>
             <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">{heroCopy.description}</p>
 
-            <div className="mt-8 rounded-[1.6rem] border border-brand-100 bg-white/90 px-5 py-5">
+            <div className="mt-8 rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5">
               <p className="text-sm font-bold text-slate-500">今日主任务</p>
               <p className="mt-2 font-math-display text-2xl font-extrabold text-ink">先完成今天最重要的一轮练习</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -274,12 +262,6 @@ export default function StudentHomePage() {
                 className="math-button-secondary rounded-[1rem] px-6 py-3 text-sm font-extrabold text-slate-700"
               >
                 复习错题
-              </Link>
-              <Link
-                href="/family"
-                className="math-button-secondary rounded-[1rem] px-6 py-3 text-sm font-extrabold text-slate-700"
-              >
-                家长视图
               </Link>
             </div>
           </article>

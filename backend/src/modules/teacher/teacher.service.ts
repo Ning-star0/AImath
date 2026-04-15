@@ -121,8 +121,10 @@ export class TeacherService {
         },
         accessControl,
         placeholders: {
-          classLearningOverview: '鏁欏笀闇€鍏堟彁浜ょ彮绾х鐞嗙敵璇凤紝骞剁敱绠＄悊鍛樺鏍搁€氳繃鍚庯紝鎵嶈兘鏌ョ湅瀵瑰簲鐝骇瀛︽儏銆',
-          studentReportEntry: '鐝骇鏉冮檺瀹℃牳閫氳繃鍚庯紝瀛︾敓鍒楄〃鍜?AI 瀛︽儏鐢诲儚浼氳嚜鍔ㄥ紑鏀俱€',
+          classLearningOverview:
+            '教师需先提交班级管理申请，并由管理员审核通过后，才能查看对应班级学情。',
+          studentReportEntry:
+            '班级权限审核通过后，学生列表和 AI 学情画像会自动开放。',
         },
       };
     }
@@ -171,8 +173,8 @@ export class TeacherService {
       },
       accessControl,
       placeholders: {
-        classLearningOverview: '褰撳墠鏁版嵁浠呭睍绀哄凡鎺堟潈鐝骇鐨勬暣浣撳鎯呬笌瀛︾敓琛ㄧ幇銆',
-        studentReportEntry: 'AI 瀛︽儏鐢诲儚浼氶殢缁冧範銆侀敊棰樹笌鐭ヨ瘑鐐规帉鎻℃儏鍐垫寔缁洿鏂般€',
+        classLearningOverview: '当前数据仅展示已授权班级的整体学情与学生表现。',
+        studentReportEntry: 'AI 学情画像会随练习、错题与知识点掌握情况持续更新。',
       },
     };
   }
@@ -233,7 +235,7 @@ export class TeacherService {
         const aiSummary =
           typeof learningProfile?.summary === 'string'
             ? learningProfile.summary
-            : '绛夊緟鐢熸垚 AI 瀛︽儏鍒嗘瀽';
+            : '等待生成 AI 学情分析';
 
         return {
           id: student.id,
@@ -299,7 +301,7 @@ export class TeacherService {
     });
 
     if (!student) {
-      throw new NotFoundException('瀛︾敓涓嶅瓨鍦');
+      throw new NotFoundException('学生不存在');
     }
 
     if (!this.isStudentInApprovedClasses(student, accessControl.approvedClasses) && user.role !== Role.ADMIN) {
@@ -358,7 +360,7 @@ export class TeacherService {
       knowledgePointName:
         item.knowledgePoint?.name ??
         item.question.questionKnowledgeMaps[0]?.knowledgePoint.name ??
-        '寰呰ˉ鍏呯煡璇嗙偣',
+        '待补充知识点',
     }));
 
     const aiInsight = await this.openAiClient.analyzeStudentLearningProfile({
@@ -424,7 +426,7 @@ export class TeacherService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('鏁欏笀妗ｆ涓嶅瓨鍦');
+      throw new NotFoundException('教师档案不存在');
     }
 
     const extra = this.readTeacherExtra(teacher.extra);
@@ -450,7 +452,7 @@ export class TeacherService {
       classAccessStatus: nextExtra.classAccessStatus,
       requestedClasses: nextExtra.requestedClasses,
       approvedClasses: nextExtra.approvedClasses,
-      nextStep: '鐝骇绠＄悊鐢宠宸叉彁浜わ紝璇风瓑寰呯鐞嗗憳瀹℃牳閫氳繃鍚庢煡鐪嬪搴旂彮绾у鐢熴€',
+      nextStep: '班级管理申请已提交，请等待管理员审核通过后查看对应班级学生。',
     };
   }
 
@@ -476,7 +478,7 @@ export class TeacherService {
     });
 
     if (!teacher) {
-      throw new NotFoundException('鏁欏笀妗ｆ涓嶅瓨鍦');
+      throw new NotFoundException('教师档案不存在');
     }
 
     const extra = this.readTeacherExtra(teacher.extra);
@@ -604,7 +606,7 @@ export class TeacherService {
         const current = knowledgeMap.get('unknown');
         knowledgeMap.set('unknown', {
           knowledgePointId: 'unknown',
-          knowledgePointName: '寰呰ˉ鍏呯煡璇嗙偣',
+          knowledgePointName: '待补充知识点',
           total: (current?.total ?? 0) + 1,
           wrongCount: (current?.wrongCount ?? 0) + (detail.isCorrect ? 0 : 1),
         });
@@ -653,7 +655,7 @@ export class TeacherService {
       teacherFocus: insight.teacherFocus,
       nextRecommendedKnowledgePoint: weakKnowledgePoints[0]?.knowledgePointName ?? null,
       recommendationSummary:
-        insight.recommendations[0] ?? '寤鸿鍏堜粠鏈€杩戦敊璇渶澶氱殑鐭ヨ瘑鐐瑰紑濮嬪珐鍥恒€',
+        insight.recommendations[0] ?? '建议先从最近错误最多的知识点开始巩固。',
     };
   }
 
@@ -666,5 +668,4 @@ export class TeacherService {
     });
   }
 }
-
 
