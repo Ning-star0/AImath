@@ -595,4 +595,3 @@ cd C:\Users\n2356\Downloads\AImath\AImath
 docker compose -f .\docker\docker-compose.yml up -d
 
 C:\Users\n2356\Downloads\AImath\AImath\docker\docker-compose.yml up -d
-1111

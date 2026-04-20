@@ -1,0 +1,304 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --math-primary: #3f51b5;
+  --math-primary-deep: #26368d;
+  --math-secondary: #4caf50;
+  --math-accent: #ff9800;
+  --math-violet: #9c27b0;
+  --math-yellow: #ffeb3b;
+  --math-slate: #607d8b;
+  --page-bg: #f7f4ea;
+  --page-surface: #fffdf5;
+  --page-border: rgba(63, 81, 181, 0.14);
+  --text-main: #20304f;
+  --text-soft: #5d6d89;
+  --display-font: 'Baloo 2', 'Nunito', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --body-font: 'Nunito', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text-main);
+  font-family: var(--body-font);
+  background:
+    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.72), transparent 14%),
+    radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.68), transparent 14%),
+    radial-gradient(circle at 18% 84%, rgba(139, 195, 74, 0.18), transparent 18%),
+    radial-gradient(circle at 82% 86%, rgba(255, 193, 7, 0.18), transparent 16%),
+    linear-gradient(180deg, #7fddff 0%, #bdf2ff 24%, #eafcff 54%, #fff9dc 76%, #d9f48d 100%);
+  overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+body::before {
+  background-image:
+    radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+    radial-gradient(circle at 23% 20%, rgba(255, 255, 255, 0.92) 0 16%, transparent 17%),
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+    radial-gradient(circle at 70% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%),
+    radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.9) 0 16%, transparent 17%),
+    radial-gradient(circle at 85% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%);
+  background-size: 100% 100%;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.08));
+}
+
+body::after {
+  background: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(63, 81, 181, 0.18);
+}
+
+.font-home,
+.font-math-display {
+  font-family: var(--display-font);
+}
+
+.math-symbol-strip {
+  position: relative;
+}
+
+.math-symbol-strip::before {
+  content: '+  ×  ÷  =  √  π  ∑';
+  position: absolute;
+  right: 1.25rem;
+  top: -0.7rem;
+  color: rgba(63, 81, 181, 0.12);
+  font-family: var(--display-font);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+
+.math-card {
+  border: 3px solid rgba(255, 193, 7, 0.42);
+  background: #fffdf5;
+  box-shadow:
+    0 18px 36px rgba(63, 81, 181, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.math-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+}
+
+.math-panel::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -40% auto;
+  width: 11rem;
+  height: 11rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.72), transparent 68%);
+  pointer-events: none;
+}
+
+.math-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.48rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.math-chip-primary {
+  background: rgba(63, 81, 181, 0.12);
+  color: #3145ab;
+}
+
+.math-chip-success {
+  background: rgba(76, 175, 80, 0.14);
+  color: #2f7d33;
+}
+
+.math-chip-warm {
+  background: rgba(255, 152, 0, 0.14);
+  color: #b36d00;
+}
+
+.math-chip-violet {
+  background: rgba(156, 39, 176, 0.12);
+  color: #8a249c;
+}
+
+.math-button-primary,
+.math-button-secondary,
+.math-lift {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease,
+    border-color 180ms ease;
+}
+
+.math-button-primary {
+  border: 0;
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, #28a745 0%, #18903a 52%, #0f7b2d 100%);
+  box-shadow:
+    0 16px 32px rgba(24, 144, 58, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.24);
+}
+
+.math-button-secondary {
+  border: 2px solid rgba(255, 193, 7, 0.38);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 24px rgba(255, 193, 7, 0.14);
+}
+
+.math-button-primary:hover,
+.math-button-secondary:hover,
+.math-lift:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+.math-button-primary:focus-visible,
+.math-button-secondary:focus-visible,
+.math-lift:focus-visible,
+.math-input:focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 4px rgba(63, 81, 181, 0.12),
+    0 18px 32px rgba(63, 81, 181, 0.18);
+}
+
+.math-button-primary:disabled,
+.math-button-secondary:disabled {
+  transform: none;
+  filter: saturate(0.86);
+  box-shadow: none;
+}
+
+.math-input {
+  width: 100%;
+  border: 2px solid rgba(96, 125, 139, 0.18);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-main);
+  padding: 0.95rem 1rem;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.math-input:focus,
+.math-input:hover {
+  border-color: rgba(63, 81, 181, 0.42);
+  box-shadow: 0 0 0 4px rgba(63, 81, 181, 0.08);
+}
+
+.portal-shell {
+  position: relative;
+}
+
+.portal-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.math-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  background: rgba(63, 81, 181, 0.1);
+  color: #3145ab;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.math-stat-card {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: #ffffff;
+  box-shadow: 0 14px 28px rgba(63, 81, 181, 0.08);
+}
+
+.math-role-panel {
+  border-radius: 1.6rem;
+  border: 2px solid rgba(255, 193, 7, 0.28);
+  background: linear-gradient(180deg, #fffdf5, #ffffff);
+  box-shadow: 0 16px 32px rgba(255, 193, 7, 0.12);
+}
+
+.math-progress-track {
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(63, 81, 181, 0.1);
+}
+
+.math-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffca28 0%, #ff9800 36%, #4caf50 100%);
+}
+
+.storybook-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+.storybook-scene::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.portal-board {
+  border: 4px solid rgba(255, 193, 7, 0.52);
+  border-radius: 2.3rem;
+  background: #fffdf7;
+  box-shadow:
+    0 26px 52px rgba(63, 81, 181, 0.14),
+    inset 0 2px 0 rgba(255, 255, 255, 0.84);
+}
+
+.cloud-badge {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 22px rgba(63, 81, 181, 0.12);
+}
