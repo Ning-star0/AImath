@@ -159,18 +159,20 @@ export class OpenAiClient {
     }
 
     try {
-      const response = await (this.visionClient as any).responses.create({
+      const completion = await this.visionClient.chat.completions.create({
         model: this.visionModel,
-        input: [
+        temperature: 0.2,
+        max_tokens: 1000,
+        messages: [
           {
             role: 'user',
             content: [
               {
-                type: 'input_image',
-                image_url: input.imageDataUrl,
+                type: 'image_url' as const,
+                image_url: { url: input.imageDataUrl },
               },
               {
-                type: 'input_text',
+                type: 'text' as const,
                 text: [
                   '请识别这道小学数学题。',
                   '优先返回 JSON，字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
@@ -183,9 +185,9 @@ export class OpenAiClient {
             ],
           },
         ],
-      });
+      } as any);
 
-      const raw = this.extractResponsesText(response);
+      const raw = completion.choices[0]?.message?.content ?? '';
       if (!raw) {
         return this.buildOcrFallback(input, '图片识别结果为空，请人工确认题干后继续。');
       }
@@ -319,18 +321,20 @@ export class OpenAiClient {
     }
 
     try {
-      const response = await (this.visionClient as any).responses.create({
+      const completion = await this.visionClient.chat.completions.create({
         model: this.visionModel,
-        input: [
+        temperature: 0.3,
+        max_tokens: 1500,
+        messages: [
           {
             role: 'user',
             content: [
               {
-                type: 'input_image',
-                image_url: input.imageDataUrl,
+                type: 'image_url' as const,
+                image_url: { url: input.imageDataUrl },
               },
               {
-                type: 'input_text',
+                type: 'text' as const,
                 text: [
                   '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。',
                   '字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
@@ -345,9 +349,9 @@ export class OpenAiClient {
             ],
           },
         ],
-      });
+      } as any);
 
-      const raw = this.extractResponsesText(response);
+      const raw = completion.choices[0]?.message?.content ?? '';
       if (!raw) {
         return this.buildFallback(input, '视觉模型未返回可用讲解，本次先返回基础讲解。');
       }
@@ -394,7 +398,7 @@ export class OpenAiClient {
       recognizedText: normalizedText,
       confidence: normalizedText ? 0.35 : 0,
       questionType: input.questionType ?? 'SHORT_ANSWER',
-      options: this.extractOptionsFromText(normalizedText),
+      options: extractOptionsFromText(normalizedText),
       note,
       needsManualConfirmation: true,
     };
@@ -505,7 +509,7 @@ export class OpenAiClient {
         ? parsed.options.filter(
             (item): item is string => typeof item === 'string' && Boolean(item.trim()),
           )
-        : this.extractOptionsFromText(recognizedText);
+        : extractOptionsFromText(recognizedText);
 
       return {
         recognizedText,
@@ -538,7 +542,7 @@ export class OpenAiClient {
         recognizedText,
         confidence: 0.45,
         questionType: input.questionType ?? 'SHORT_ANSWER',
-        options: this.extractOptionsFromText(recognizedText),
+        options: extractOptionsFromText(recognizedText),
         note: '模型未严格按 JSON 返回，系统已先保留识别文本，请人工确认后继续。',
         needsManualConfirmation: true,
       };
@@ -591,37 +595,6 @@ export class OpenAiClient {
     }
   }
 
-  private extractResponsesText(response: any) {
-    if (!response) {
-      return '';
-    }
-
-    if (typeof response.output_text === 'string' && response.output_text.trim()) {
-      return response.output_text.trim();
-    }
-
-    const output = Array.isArray(response.output) ? response.output : [];
-    const textParts: string[] = [];
-
-    for (const item of output) {
-      const contents = Array.isArray(item?.content) ? item.content : [];
-      for (const contentItem of contents) {
-        if (typeof contentItem?.text === 'string' && contentItem.text.trim()) {
-          textParts.push(contentItem.text.trim());
-          continue;
-        }
-
-        if (
-          typeof contentItem?.output_text === 'string' &&
-          contentItem.output_text.trim()
-        ) {
-          textParts.push(contentItem.output_text.trim());
-        }
-      }
-    }
-
-    return textParts.join('\n').trim();
-  }
 
   private normalizeStructuredAnswer(
     answer: Partial<StructuredAiAnswer>,
@@ -672,10 +645,11 @@ export class OpenAiClient {
     };
   }
 
-  private extractOptionsFromText(text: string) {
-    return text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => /^[A-DＡ-Ｄ][\.、\s]/i.test(line));
-  }
+}
+
+export function extractOptionsFromText(text: string) {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^[A-DＡ-Ｄ][\.、\s]/i.test(line));
 }

@@ -2,6 +2,12 @@
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OpenAiClient, StudentLearningInsight } from '../../shared/ai/openai.client';
+import {
+  normalizeManagedClassName,
+  normalizeManagedClasses,
+  readTeacherExtra,
+  ManagedClassAssignment,
+} from '../../shared/utils/class-utils';
 import { TeacherClassAccessRequestDto } from './dto/teacher-class-access-request.dto';
 
 type AuthUser = {
@@ -9,47 +15,6 @@ type AuthUser = {
   role: Role;
   teacher?: { id: string; extra?: unknown } | null;
 };
-
-type ManagedClassAssignment = {
-  grade: number;
-  className: string;
-  schoolName?: string | null;
-};
-
-type TeacherExtraState = {
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
-  reviewNote: string | null;
-  classAccessStatus: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
-  classAccessNote: string | null;
-  requestedClasses: ManagedClassAssignment[];
-  approvedClasses: ManagedClassAssignment[];
-};
-
-function normalizeManagedClassName(value: string | null | undefined) {
-  if (!value) {
-    return '';
-  }
-
-  const trimmed = value.trim();
-  const removedGrade = trimmed.replace(
-    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
-    '',
-  );
-  const map: Record<string, string> = {
-    '1': '\u4e00\u73ed',
-    '2': '\u4e8c\u73ed',
-    '3': '\u4e09\u73ed',
-    '4': '\u56db\u73ed',
-    '5': '\u4e94\u73ed',
-    '6': '\u516d\u73ed',
-  };
-  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
-  if (numericClassMatch) {
-    return map[numericClassMatch[1]] ?? removedGrade.trim();
-  }
-
-  return removedGrade.trim();
-}
 
 function gradeToChinese(grade: number) {
   const map: Record<number, string> = {
@@ -262,7 +227,7 @@ export class TeacherService {
     const accessControl = await this.getTeacherAccessControl(user);
 
     if (!accessControl.canViewStudents) {
-      throw new ForbiddenException('Current teacher account has not been granted class access.');
+      throw new ForbiddenException('当前教师账号尚未获得班级访问权限。');
     }
 
     const student = await this.prisma.student.findFirst({
@@ -305,7 +270,7 @@ export class TeacherService {
     }
 
     if (!this.isStudentInApprovedClasses(student, accessControl.approvedClasses) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Current teacher cannot access this class.');
+      throw new ForbiddenException('当前教师无法访问该班级。');
     }
 
     const exerciseDetails = await this.prisma.exerciseRecordDetail.findMany({
@@ -413,12 +378,12 @@ export class TeacherService {
 
   async submitClassAccessRequest(user: AuthUser, payload: TeacherClassAccessRequestDto) {
     if (user.role !== Role.TEACHER || !user.teacher) {
-      throw new ForbiddenException('Only teacher accounts can submit class access requests.');
+      throw new ForbiddenException('仅教师账号可以提交班级管理申请。');
     }
 
-    const classes = this.normalizeManagedClasses(payload.classes);
+    const classes = normalizeManagedClasses(payload.classes);
     if (classes.length === 0) {
-      throw new BadRequestException('At least one managed class must be submitted.');
+      throw new BadRequestException('至少需要提交一个管理班级。');
     }
 
     const teacher = await this.prisma.teacher.findUnique({
@@ -429,9 +394,9 @@ export class TeacherService {
       throw new NotFoundException('教师档案不存在');
     }
 
-    const extra = this.readTeacherExtra(teacher.extra);
+    const extra = readTeacherExtra(teacher.extra);
     if (extra.reviewStatus !== 'APPROVED') {
-      throw new ForbiddenException('Teacher account review must be approved before applying for class access.');
+      throw new ForbiddenException('教师账号需先通过审核才能申请班级管理权限。');
     }
 
     const updatedTeacher = await this.prisma.teacher.update({
@@ -443,11 +408,11 @@ export class TeacherService {
           classAccessNote: null,
           classAccessSubmittedAt: new Date().toISOString(),
           requestedClasses: classes,
-        },
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 
-    const nextExtra = this.readTeacherExtra(updatedTeacher.extra);
+    const nextExtra = readTeacherExtra(updatedTeacher.extra);
     return {
       classAccessStatus: nextExtra.classAccessStatus,
       requestedClasses: nextExtra.requestedClasses,
@@ -470,7 +435,7 @@ export class TeacherService {
     }
 
     if (!user.teacher?.id) {
-      throw new ForbiddenException('Current account is not a teacher.');
+      throw new ForbiddenException('当前账号不是教师账号。');
     }
 
     const teacher = await this.prisma.teacher.findUnique({
@@ -481,7 +446,7 @@ export class TeacherService {
       throw new NotFoundException('教师档案不存在');
     }
 
-    const extra = this.readTeacherExtra(teacher.extra);
+    const extra = readTeacherExtra(teacher.extra);
     const canViewStudents =
       extra.reviewStatus === 'APPROVED' &&
       extra.classAccessStatus === 'APPROVED' &&
@@ -528,64 +493,6 @@ export class TeacherService {
           !student.schoolName ||
           item.schoolName.trim() === student.schoolName.trim()),
     );
-  }
-
-  private readTeacherExtra(extra: Prisma.JsonValue | null | undefined): TeacherExtraState {
-    const value =
-      extra && typeof extra === 'object' && !Array.isArray(extra)
-        ? (extra as Record<string, unknown>)
-        : {};
-
-    return {
-      reviewStatus:
-        value.reviewStatus === 'APPROVED' || value.reviewStatus === 'REJECTED'
-          ? value.reviewStatus
-          : 'PENDING',
-      reviewNote: typeof value.reviewNote === 'string' ? value.reviewNote : null,
-      classAccessStatus:
-        value.classAccessStatus === 'PENDING' ||
-        value.classAccessStatus === 'APPROVED' ||
-        value.classAccessStatus === 'REJECTED'
-          ? value.classAccessStatus
-          : 'NOT_SUBMITTED',
-      classAccessNote:
-        typeof value.classAccessNote === 'string' ? value.classAccessNote : null,
-      requestedClasses: this.normalizeManagedClasses(value.requestedClasses),
-      approvedClasses: this.normalizeManagedClasses(value.approvedClasses),
-    };
-  }
-
-  private normalizeManagedClasses(value: unknown): ManagedClassAssignment[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const result: ManagedClassAssignment[] = [];
-
-    for (const item of value) {
-      if (!item || typeof item !== 'object') {
-        continue;
-      }
-
-      const row = item as Record<string, unknown>;
-      const grade = Number(row.grade);
-      const className =
-        typeof row.className === 'string' ? normalizeManagedClassName(row.className) : '';
-      const schoolName =
-        typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
-
-      if (!grade || !className) {
-        continue;
-      }
-
-      result.push({
-        grade,
-        className,
-        schoolName,
-      });
-    }
-
-    return result;
   }
 
   private buildWeakKnowledgePoints(details: ExerciseDetailWithQuestion[]) {

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -18,7 +19,7 @@ export class FamilyController {
     @CurrentUser() user: { id: string; role: string },
     @Query('childId') childId?: string,
   ) {
-    return this.familyService.getOverview(user as any, childId);
+    return this.familyService.getOverview(user as { id: string; role: Role }, childId);
   }
 
   @Post('bind-child')
@@ -29,6 +30,6 @@ export class FamilyController {
     @CurrentUser() user: { id: string; role: string },
     @Body() payload: BindChildDto,
   ) {
-    return this.familyService.bindChild(user as any, payload);
+    return this.familyService.bindChild(user as { id: string; role: Role }, payload);
   }
 }

@@ -2,9 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  OcrExtractionResult,
+  type OcrExtractionResult,
   OpenAiClient,
   StructuredAiAnswer,
+  extractOptionsFromText,
 } from '../../shared/ai/openai.client';
 import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
 import { AskAiDto } from './dto/ask-ai.dto';
@@ -91,7 +92,7 @@ export class AiQaService {
         recognizedText: manualText,
         confidence: manualText ? 0.4 : 0,
         questionType: normalizedQuestionType,
-        options: this.extractOptions(manualText),
+        options: extractOptionsFromText(manualText),
         needsManualConfirmation: true,
         note: manualText
           ? '当前未上传图片，已按手动输入内容生成待确认题干。'
@@ -136,12 +137,9 @@ export class AiQaService {
       message: 'AI 正在审题，请稍候。',
     });
 
-    this.writeEvent(response, 'status', {
-      stage: 'thinking',
-      message: '正在理解题意并整理解题步骤。',
-    });
+    const hasImage = Boolean(payload.imageDataUrl?.trim());
 
-    const answer = await this.openAiClient.answerMathQuestion({
+    const input = {
       originalQuestion: payload.originalQuestion,
       grade: payload.grade,
       imageDataUrl: payload.imageDataUrl,
@@ -154,9 +152,44 @@ export class AiQaService {
         questionType: payload.questionType ?? null,
         options: payload.options ?? [],
       },
-    });
+    };
 
-    await this.emitPreview(response, answer);
+    let answer: StructuredAiAnswer;
+
+    if (hasImage) {
+      // Image mode: send heartbeat while waiting for vision API
+      this.writeEvent(response, 'status', {
+        stage: 'thinking',
+        message: '正在识别图片中的题目内容...',
+      });
+
+      const heartbeat = setInterval(() => {
+        this.writeEvent(response, 'status', {
+          stage: 'thinking',
+          message: '视觉模型正在分析题目，请耐心等待...',
+        });
+      }, 5000);
+
+      try {
+        answer = await this.openAiClient.answerMathQuestion(input);
+      } finally {
+        clearInterval(heartbeat);
+      }
+
+      await this.emitPreview(response, answer);
+    } else {
+      // Text mode: use true streaming
+      this.writeEvent(response, 'status', {
+        stage: 'thinking',
+        message: '正在理解题意并整理解题步骤。',
+      });
+
+      answer = await this.openAiClient.streamMathQuestion(input, {
+        onChunk: (chunk) => {
+          this.writeEvent(response, 'chunk', { content: chunk });
+        },
+      });
+    }
 
     const persistedRecord = await this.persistAnswer(user, payload, answer);
 
@@ -266,10 +299,4 @@ export class AiQaService {
     });
   }
 
-  private extractOptions(text: string) {
-    return text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => /^[A-DＡ-Ｄ][\.、\s]/i.test(line));
-  }
 }

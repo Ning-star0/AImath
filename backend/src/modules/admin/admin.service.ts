@@ -1,50 +1,14 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, QuestionType, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  normalizeManagedClassName,
+  normalizeManagedClasses,
+  readTeacherExtra,
+} from '../../shared/utils/class-utils';
 import { QueryAdminQuestionsDto } from './dto/query-admin-questions.dto';
 import { ReviewTeacherClassAccessDto } from './dto/review-teacher-class-access.dto';
 import { ReviewTeacherDto } from './dto/review-teacher.dto';
-
-type ManagedClassAssignment = {
-  grade: number;
-  className: string;
-  schoolName?: string | null;
-};
-
-type TeacherExtraState = {
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
-  reviewNote: string | null;
-  classAccessStatus: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
-  classAccessNote: string | null;
-  requestedClasses: ManagedClassAssignment[];
-  approvedClasses: ManagedClassAssignment[];
-};
-
-function normalizeManagedClassName(value: string | null | undefined) {
-  if (!value) {
-    return '';
-  }
-
-  const trimmed = value.trim();
-  const removedGrade = trimmed.replace(
-    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
-    '',
-  );
-  const map: Record<string, string> = {
-    '1': '\u4e00\u73ed',
-    '2': '\u4e8c\u73ed',
-    '3': '\u4e09\u73ed',
-    '4': '\u56db\u73ed',
-    '5': '\u4e94\u73ed',
-    '6': '\u516d\u73ed',
-  };
-  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
-  if (numericClassMatch) {
-    return map[numericClassMatch[1]] ?? removedGrade.trim();
-  }
-
-  return removedGrade.trim();
-}
 
 @Injectable()
 export class AdminService {
@@ -69,8 +33,8 @@ export class AdminService {
         aiQaCount,
       },
       placeholders: {
-        aiConfig: '鍚庣画鍙户缁墿灞曟ā鍨嬪垏鎹€丳rompt 鐗堟湰鍜岃皟鐢ㄩ檺棰濋厤缃€',
-        governance: '鍚庣画鍙户缁墿灞曠敤鎴锋不鐞嗐€侀搴撳鏍稿拰绯荤粺鏃ュ織绠＄悊銆',
+        aiConfig: '后续可继续扩展模型切换、Prompt 版本和调用限额配置。',
+        governance: '后续可继续扩展用户治理、题库审核和系统日志管理。',
       },
     };
   }
@@ -89,7 +53,7 @@ export class AdminService {
 
     return {
       list: users.map((user) => {
-        const teacherState = this.readTeacherExtra(user.teacher?.extra);
+        const teacherState = readTeacherExtra(user.teacher?.extra);
 
         return {
           id: user.id,
@@ -133,14 +97,14 @@ export class AdminService {
     });
 
     if (!user || user.role !== Role.TEACHER || !user.teacher) {
-      throw new NotFoundException('鏈壘鍒板緟瀹℃牳鐨勬暀甯堣处鍙枫€');
+      throw new NotFoundException('未找到待审核的教师账号。');
     }
 
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('涓嶈兘瀹℃牳褰撳墠鐧诲綍绠＄悊鍛樿嚜宸辩殑璐﹀彿銆');
+      throw new BadRequestException('不能审核当前登录管理员自己的账号。');
     }
 
-    const currentExtra = this.readTeacherExtra(user.teacher.extra);
+    const currentExtra = readTeacherExtra(user.teacher.extra);
     const nextStatus = payload.decision;
     const note = payload.note?.trim() || null;
 
@@ -167,7 +131,7 @@ export class AdminService {
                 nextStatus === 'REJECTED' ? [] : currentExtra.requestedClasses,
               approvedClasses:
                 nextStatus === 'REJECTED' ? [] : currentExtra.approvedClasses,
-            },
+            } as unknown as Prisma.InputJsonValue,
           },
         },
       },
@@ -176,7 +140,7 @@ export class AdminService {
       },
     });
 
-    const nextExtra = this.readTeacherExtra(updatedUser.teacher?.extra);
+    const nextExtra = readTeacherExtra(updatedUser.teacher?.extra);
     return {
       userId: updatedUser.id,
       displayName: updatedUser.displayName,
@@ -203,31 +167,31 @@ export class AdminService {
     });
 
     if (!user || user.role !== Role.TEACHER || !user.teacher) {
-      throw new NotFoundException('鏈壘鍒板緟瀹℃牳鐝骇鏉冮檺鐨勬暀甯堣处鍙枫€');
+      throw new NotFoundException('未找到待审核班级权限的教师账号。');
     }
 
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('涓嶈兘瀹℃牳褰撳墠鐧诲綍绠＄悊鍛樿嚜宸辩殑鐝骇鏉冮檺銆');
+      throw new BadRequestException('不能审核当前登录管理员自己的班级权限。');
     }
 
-    const currentExtra = this.readTeacherExtra(user.teacher.extra);
+    const currentExtra = readTeacherExtra(user.teacher.extra);
     if (currentExtra.reviewStatus !== 'APPROVED') {
-      throw new BadRequestException('鏁欏笀璐﹀彿灏氭湭閫氳繃鍩虹瀹℃牳锛屼笉鑳藉鏍哥彮绾х鐞嗘潈闄愩€');
+      throw new BadRequestException('教师账号尚未通过基础审核，不能审核班级管理权限。');
     }
 
     const decision = payload.decision;
     const requestedClasses = currentExtra.requestedClasses;
     if (requestedClasses.length === 0 && decision === 'APPROVED') {
-      throw new BadRequestException('褰撳墠鏁欏笀杩樻病鏈夋彁浜ょ彮绾х鐞嗙敵璇枫€');
+      throw new BadRequestException('当前教师还没有提交班级管理申请。');
     }
 
     const approvedClasses =
       decision === 'APPROVED'
-        ? this.normalizeManagedClasses(payload.approvedClasses ?? requestedClasses)
+        ? normalizeManagedClasses(payload.approvedClasses ?? requestedClasses)
         : [];
 
     if (decision === 'APPROVED' && approvedClasses.length === 0) {
-      throw new BadRequestException('瀹℃牳閫氳繃鏃惰嚦灏戦渶瑕佸垎閰嶄竴涓彮绾с€');
+      throw new BadRequestException('审核通过时至少需要分配一个班级。');
     }
 
     const note = payload.note?.trim() || null;
@@ -243,7 +207,7 @@ export class AdminService {
               classAccessNote: note,
               classAccessReviewedAt: new Date().toISOString(),
               approvedClasses,
-            },
+            } as unknown as Prisma.InputJsonValue,
           },
         },
       },
@@ -252,7 +216,7 @@ export class AdminService {
       },
     });
 
-    const nextExtra = this.readTeacherExtra(updatedUser.teacher?.extra);
+    const nextExtra = readTeacherExtra(updatedUser.teacher?.extra);
     return {
       userId: updatedUser.id,
       displayName: updatedUser.displayName,
@@ -269,7 +233,7 @@ export class AdminService {
 
   async deleteUser(targetUserId: string, operatorUserId: string) {
     if (targetUserId === operatorUserId) {
-      throw new BadRequestException('涓嶈兘鍒犻櫎褰撳墠鐧诲綍鐨勭鐞嗗憳璐﹀彿銆');
+      throw new BadRequestException('不能删除当前登录的管理员账号。');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -289,7 +253,7 @@ export class AdminService {
     });
 
     if (!user) {
-      throw new NotFoundException('鏈壘鍒拌鍒犻櫎鐨勮处鍙枫€');
+      throw new NotFoundException('未找到要删除的账号。');
     }
 
     if (user.role === Role.ADMIN) {
@@ -301,7 +265,7 @@ export class AdminService {
       });
 
       if (adminCount <= 1) {
-        throw new BadRequestException('褰撳墠浠呭墿鏈€鍚庝竴涓惎鐢ㄤ腑鐨勭鐞嗗憳璐﹀彿锛屼笉鑳藉垹闄ゃ€');
+        throw new BadRequestException('当前仅剩最后一个启用中的管理员账号，不能删除。');
       }
     }
 
@@ -424,68 +388,10 @@ export class AdminService {
         baseUrl: visionBaseUrl,
       },
       placeholders: {
-        moderation: '鍚庣画澧炲姞鍥炵瓟瀹℃牳銆佸勾绾ц竟鐣屾牎楠屽拰椋庨櫓绛夌骇閰嶇疆銆',
-        rateLimit: '鍚庣画澧炲姞鐢ㄦ埛绾у拰鎺ュ彛绾ч檺娴侀厤缃€',
+        moderation: '后续增加回答审核、年级边界校验和风险等级配置。',
+        rateLimit: '后续增加用户级和接口级限流配置。',
       },
     };
-  }
-
-  private readTeacherExtra(extra: Prisma.JsonValue | null | undefined): TeacherExtraState {
-    const value =
-      extra && typeof extra === 'object' && !Array.isArray(extra)
-        ? (extra as Record<string, unknown>)
-        : {};
-
-    return {
-      reviewStatus:
-        value.reviewStatus === 'APPROVED' || value.reviewStatus === 'REJECTED'
-          ? value.reviewStatus
-          : 'PENDING',
-      reviewNote: typeof value.reviewNote === 'string' ? value.reviewNote : null,
-      classAccessStatus:
-        value.classAccessStatus === 'PENDING' ||
-        value.classAccessStatus === 'APPROVED' ||
-        value.classAccessStatus === 'REJECTED'
-          ? value.classAccessStatus
-          : 'NOT_SUBMITTED',
-      classAccessNote:
-        typeof value.classAccessNote === 'string' ? value.classAccessNote : null,
-      requestedClasses: this.normalizeManagedClasses(value.requestedClasses),
-      approvedClasses: this.normalizeManagedClasses(value.approvedClasses),
-    };
-  }
-
-  private normalizeManagedClasses(value: unknown): ManagedClassAssignment[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const result: ManagedClassAssignment[] = [];
-
-    for (const item of value) {
-      if (!item || typeof item !== 'object') {
-        continue;
-      }
-
-      const row = item as Record<string, unknown>;
-      const grade = Number(row.grade);
-      const className =
-        typeof row.className === 'string' ? normalizeManagedClassName(row.className) : '';
-      const schoolName =
-        typeof row.schoolName === 'string' ? row.schoolName.trim() : null;
-
-      if (!grade || !className) {
-        continue;
-      }
-
-      result.push({
-        grade,
-        className,
-        schoolName,
-      });
-    }
-
-    return result;
   }
 
   async getClasses() {
@@ -552,7 +458,7 @@ export class AdminService {
     }
 
     for (const teacher of teachers) {
-      const extra = this.readTeacherExtra(teacher.extra);
+      const extra = readTeacherExtra(teacher.extra);
       for (const assignment of extra.approvedClasses) {
         const normalizedClassName = normalizeManagedClassName(assignment.className);
         const key = `${assignment.schoolName ?? ''}__${assignment.grade}__${normalizedClassName}`;
@@ -597,7 +503,7 @@ export class AdminService {
     });
 
     if (!student) {
-      throw new NotFoundException('鏈壘鍒拌鍒嗛厤鐝骇鐨勫鐢熴€');
+      throw new NotFoundException('未找到要分配班级的学生。');
     }
 
     const updated = await this.prisma.student.update({

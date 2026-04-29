@@ -11,6 +11,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
+import {
+  normalizeManagedClassName,
+  normalizeManagedClasses,
+} from '../../shared/utils/class-utils';
 
 type TeacherReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 type TeacherClassAccessStatus =
@@ -18,38 +22,6 @@ type TeacherClassAccessStatus =
   | 'PENDING'
   | 'APPROVED'
   | 'REJECTED';
-
-type ManagedClassAssignment = {
-  grade: number;
-  className: string;
-  schoolName?: string | null;
-};
-
-function normalizeManagedClassName(value: string | null | undefined) {
-  if (!value) {
-    return '';
-  }
-
-  const trimmed = value.trim();
-  const removedGrade = trimmed.replace(
-    /^(?:[1-6]|\u4e00|\u4e8c|\u4e09|\u56db|\u4e94|\u516d)\s*\u5e74\u7ea7/,
-    '',
-  );
-  const map: Record<string, string> = {
-    '1': '\u4e00\u73ed',
-    '2': '\u4e8c\u73ed',
-    '3': '\u4e09\u73ed',
-    '4': '\u56db\u73ed',
-    '5': '\u4e94\u73ed',
-    '6': '\u516d\u73ed',
-  };
-  const numericClassMatch = removedGrade.match(/^([1-6])\s*\u73ed$/);
-  if (numericClassMatch) {
-    return map[numericClassMatch[1]] ?? removedGrade.trim();
-  }
-
-  return removedGrade.trim();
-}
 
 type AuthUserRecord = {
   id: string;
@@ -102,7 +74,7 @@ export class AuthService {
     const role = payload.role ?? Role.STUDENT;
 
     if (role === Role.ADMIN) {
-      throw new BadRequestException('绠＄悊鍛樿处鍙峰彧鑳界敱鍚庡彴鍒涘缓銆');
+      throw new BadRequestException('管理员账号只能由后台创建。');
     }
 
     const duplicateUser = await this.prisma.user.findFirst({
@@ -116,18 +88,18 @@ export class AuthService {
     });
 
     if (duplicateUser) {
-      throw new BadRequestException('鐢ㄦ埛鍚嶃€侀偖绠辨垨鎵嬫満鍙峰凡琚崰鐢ㄣ€');
+      throw new BadRequestException('用户名、邮箱或手机号已被占用。');
     }
 
     const studentCode = payload.studentCode?.trim();
     const teacherCode = payload.teacherCode?.trim();
 
     if (role === Role.STUDENT && !studentCode) {
-      throw new BadRequestException('瀛︾敓娉ㄥ唽蹇呴』濉啓瀛﹀彿銆');
+      throw new BadRequestException('学生注册必须填写学号。');
     }
 
     if (role === Role.TEACHER && !teacherCode) {
-      throw new BadRequestException('鏁欏笀娉ㄥ唽蹇呴』濉啓宸ュ彿銆');
+      throw new BadRequestException('教师注册必须填写工号。');
     }
 
     if (role === Role.STUDENT) {
@@ -136,7 +108,7 @@ export class AuthService {
       });
 
       if (duplicateStudentCode) {
-        throw new BadRequestException('璇ュ鍙峰凡瀹屾垚娉ㄥ唽銆');
+        throw new BadRequestException('该学号已完成注册。');
       }
     }
 
@@ -146,12 +118,12 @@ export class AuthService {
       });
 
       if (duplicateTeacherCode) {
-        throw new BadRequestException('璇ュ伐鍙峰凡瀹屾垚娉ㄥ唽銆');
+        throw new BadRequestException('该工号已完成注册。');
       }
     }
 
     if (role === Role.STUDENT && !payload.grade) {
-      throw new BadRequestException('瀛︾敓娉ㄥ唽闇€瑕佸～鍐欏勾绾т俊鎭€');
+      throw new BadRequestException('学生注册需要填写年级信息。');
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
@@ -212,9 +184,9 @@ export class AuthService {
         user: this.buildUserProfile(createdUser),
         nextStep: {
           status: 'PENDING_REVIEW',
-          title: '鏁欏笀璐﹀彿鐢宠宸叉彁浜',
+          title: '教师账号申请已提交',
           description:
-            '鍩虹鏁欏笀韬唤瀹℃牳閫氳繃鍚庯紝浣犺繕闇€瑕佺櫥褰曟暀甯堢鎻愪氦鐝骇绠＄悊鐢宠锛屽鏍搁€氳繃鍚庢墠鑳芥煡鐪嬪搴旂彮绾у鐢熶俊鎭€',
+            '基础教师身份审核通过后，你还需要登录教师端提交班级管理申请，审核通过后才能查看对应班级学生信息。',
         },
       };
     }
@@ -226,14 +198,14 @@ export class AuthService {
         role === Role.PARENT
           ? {
               status: 'AUTO_LOGIN' as const,
-              title: '瀹堕暱璐﹀彿宸插紑閫',
+              title: '家长账号已开通',
               description:
-                '瀹堕暱璐﹀彿宸插垱寤哄畬鎴愩€傜櫥褰曞悗璇峰厛缁戝畾瀛╁瓙鐨勫鐢熻处鍙峰拰瀛︾敓瀵嗙爜锛屽啀鏌ョ湅瀵瑰簲瀛︿範鏁版嵁銆',
+                '家长账号已创建完成。登录后请先绑定孩子的学生账号和学生密码，再查看对应学习数据。',
             }
           : {
               status: 'AUTO_LOGIN' as const,
-              title: '娉ㄥ唽鎴愬姛',
-              description: '浣犵殑瀛︿範璐﹀彿宸插垱寤哄畬鎴愶紝姝ｅ湪杩涘叆瀵瑰簲宸ヤ綔鍙般€',
+              title: '注册成功',
+              description: '你的学习账号已创建完成，正在进入对应工作台。',
             },
     };
   }
@@ -285,12 +257,12 @@ export class AuthService {
       if (user.role === Role.TEACHER) {
         const reviewStatus = this.getTeacherReviewStatus(user.teacher);
         if (reviewStatus === 'REJECTED') {
-          throw new UnauthorizedException('鏁欏笀璐﹀彿瀹℃牳鏈€氳繃銆');
+          throw new UnauthorizedException('教师账号审核未通过。');
         }
-        throw new UnauthorizedException('鏁欏笀璐﹀彿姝ｅ湪瀹℃牳涓€');
+        throw new UnauthorizedException('教师账号正在审核中。');
       }
 
-      throw new UnauthorizedException('褰撳墠璐﹀彿灏氭湭婵€娲汇€');
+      throw new UnauthorizedException('当前账号尚未激活。');
     }
 
     return this.buildAuthResult(user);
@@ -319,7 +291,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('鐢ㄦ埛涓嶅瓨鍦ㄣ€');
+      throw new UnauthorizedException('用户不存在。');
     }
 
     return this.buildUserProfile(user);
@@ -348,11 +320,11 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('鐢ㄦ埛涓嶅瓨鍦ㄣ€');
+      throw new UnauthorizedException('用户不存在。');
     }
 
     if (user.role !== Role.STUDENT || !user.student) {
-      throw new BadRequestException('鍙湁瀛︾敓璐﹀彿鍙互鏇存柊骞寸骇淇℃伅銆');
+      throw new BadRequestException('只有学生账号可以更新年级信息。');
     }
 
     const updatedStudent = await this.prisma.student.update({
@@ -453,8 +425,8 @@ export class AuthService {
         (extra.classAccessStatus as TeacherClassAccessStatus | undefined) ?? 'NOT_SUBMITTED',
       classAccessNote:
         typeof extra.classAccessNote === 'string' ? extra.classAccessNote : null,
-      requestedClasses: this.readManagedClasses(extra.requestedClasses),
-      approvedClasses: this.readManagedClasses(extra.approvedClasses),
+      requestedClasses: normalizeManagedClasses(extra.requestedClasses),
+      approvedClasses: normalizeManagedClasses(extra.approvedClasses),
     };
   }
 
@@ -476,37 +448,5 @@ export class AuthService {
     };
   }
 
-  private readManagedClasses(value: unknown): ManagedClassAssignment[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const result: ManagedClassAssignment[] = [];
-
-    for (const item of value) {
-      if (!item || typeof item !== 'object') {
-        continue;
-      }
-
-      const record = item as Record<string, unknown>;
-      const grade = Number(record.grade);
-      const className =
-        typeof record.className === 'string' ? normalizeManagedClassName(record.className) : '';
-      const schoolName =
-        typeof record.schoolName === 'string' ? record.schoolName.trim() : null;
-
-      if (!grade || !className) {
-        continue;
-      }
-
-      result.push({
-        grade,
-        className,
-        schoolName,
-      });
-    }
-
-    return result;
-  }
 }
 

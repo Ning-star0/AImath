@@ -43,7 +43,7 @@ interface StreamEventPayload {
   content?: string;
 }
 
-const AI_STREAM_TIMEOUT_MS = 70000;
+const AI_STREAM_TIMEOUT_MS = 180000;
 
 function parseSseEvent(block: string) {
   const lines = block.split('\n');
