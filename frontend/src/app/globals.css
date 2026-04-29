@@ -30,37 +30,44 @@ body {
   margin: 0;
   color: var(--text-main);
   font-family: var(--body-font);
-  background:
-    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.72), transparent 14%),
-    radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.68), transparent 14%),
-    radial-gradient(circle at 18% 84%, rgba(139, 195, 74, 0.18), transparent 18%),
-    radial-gradient(circle at 82% 86%, rgba(255, 193, 7, 0.18), transparent 16%),
-    linear-gradient(180deg, #7fddff 0%, #bdf2ff 24%, #eafcff 54%, #fff9dc 76%, #d9f48d 100%);
+  background: #f0f4f8;
   overflow-x: hidden;
 }
 
-body::before,
+@media (min-width: 640px) {
+  body {
+    background:
+      radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.72), transparent 14%),
+      radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.68), transparent 14%),
+      radial-gradient(circle at 18% 84%, rgba(139, 195, 74, 0.18), transparent 18%),
+      radial-gradient(circle at 82% 86%, rgba(255, 193, 7, 0.18), transparent 16%),
+      linear-gradient(180deg, #7fddff 0%, #bdf2ff 24%, #eafcff 54%, #fff9dc 76%, #d9f48d 100%);
+  }
+
+  body::before {
+    content: '';
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+      radial-gradient(circle at 23% 20%, rgba(255, 255, 255, 0.92) 0 16%, transparent 17%),
+      radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+      radial-gradient(circle at 70% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%),
+      radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.9) 0 16%, transparent 17%),
+      radial-gradient(circle at 85% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%);
+    background-size: 100% 100%;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.08));
+  }
+}
+
 body::after {
   content: '';
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: -1;
-}
-
-body::before {
-  background-image:
-    radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
-    radial-gradient(circle at 23% 20%, rgba(255, 255, 255, 0.92) 0 16%, transparent 17%),
-    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
-    radial-gradient(circle at 70% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%),
-    radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.9) 0 16%, transparent 17%),
-    radial-gradient(circle at 85% 14%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%);
-  background-size: 100% 100%;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.08));
-}
-
-body::after {
   background: none;
 }
 
@@ -301,4 +308,51 @@ a {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 22px rgba(63, 81, 181, 0.12);
+}
+
+/* Mobile overrides */
+@media (max-width: 639px) {
+  .math-symbol-strip::before {
+    display: none;
+  }
+
+  .portal-board {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .math-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .math-stat-card {
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .math-role-panel {
+    border-radius: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .math-button-primary {
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(24, 144, 58, 0.2);
+  }
+
+  .math-button-secondary {
+    border-radius: 0.75rem;
+    box-shadow: none;
+  }
+
+  .math-input {
+    border-radius: 0.75rem;
+    padding: 0.85rem 0.9rem;
+  }
 }

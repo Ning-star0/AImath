@@ -73,7 +73,68 @@ export default function StudentProfilePage() {
       title="我的数学成长档案"
       description="这里会展示你的年级、班级、学号和成长记录。班级调整需要由管理员统一处理。"
     >
-      <div className="space-y-6">
+      {/* Mobile layout */}
+      <div className="sm:hidden">
+        <div className="mb-4 text-center">
+          <h2 className="text-xl font-extrabold text-ink">{currentUser?.displayName ?? '同学'}，欢迎回来</h2>
+          <p className="mt-1 text-sm text-slate-500">学生档案 · 只读信息</p>
+        </div>
+
+        {/* Info grid */}
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-[#EEF1FF] p-3 text-center">
+            <p className="text-[11px] text-slate-500">年级</p>
+            <p className="mt-1 text-lg font-extrabold text-brand-700">{grade} 年级</p>
+          </div>
+          <div className="rounded-xl bg-[#E8F5E9] p-3 text-center">
+            <p className="text-[11px] text-slate-500">班级</p>
+            <p className="mt-1 text-lg font-extrabold text-emerald-700">{className}</p>
+          </div>
+          <div className="rounded-xl bg-[#FFF8E1] p-3 text-center">
+            <p className="text-[11px] text-slate-500">学校</p>
+            <p className="mt-1 text-sm font-extrabold text-amber-700">{schoolName}</p>
+          </div>
+          <div className="rounded-xl bg-[#F3E5F5] p-3 text-center">
+            <p className="text-[11px] text-slate-500">学号</p>
+            <p className="mt-1 text-lg font-extrabold text-violet-700">{studentCode}</p>
+          </div>
+        </div>
+
+        {/* Growth stats */}
+        <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-400">成长激励</p>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-violet-700">Lv.{rewardProgress.level}</p>
+              <p className="text-[11px] text-slate-400">{levelTitle.title}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-amber-600">{rewardState.totalStars}</p>
+              <p className="text-[11px] text-slate-400">成长星</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-emerald-700">{rewardState.streakDays}天</p>
+              <p className="text-[11px] text-slate-400">连续学习</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+            <span>升级进度</span>
+            <span>{rewardProgress.currentExp} / {rewardProgress.expToNextLevel}</span>
+          </div>
+          <ProgressBar
+            value={rewardProgress.currentExp}
+            total={rewardProgress.expToNextLevel}
+            tone="purple"
+          />
+        </div>
+      </div>
+
+      {/* Desktop layout */}
+      <div className="hidden sm:block space-y-6">
         <section className="grid gap-6 xl:grid-cols-[1.06fr_0.94fr]">
           <article className="math-card rounded-[2rem] px-6 py-6">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -98,27 +159,19 @@ export default function StudentProfilePage() {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-[1.4rem] bg-[#EEF1FF] px-4 py-5">
                 <p className="text-sm font-semibold text-slate-500">当前年级</p>
-                <p className="mt-2 font-math-display text-3xl font-extrabold text-brand-700">
-                  {grade} 年级
-                </p>
+                <p className="mt-2 font-math-display text-3xl font-extrabold text-brand-700">{grade} 年级</p>
               </div>
               <div className="rounded-[1.4rem] bg-[#E8F5E9] px-4 py-5">
                 <p className="text-sm font-semibold text-slate-500">班级</p>
-                <p className="mt-2 font-math-display text-2xl font-extrabold text-[#2E7D32]">
-                  {className}
-                </p>
+                <p className="mt-2 font-math-display text-2xl font-extrabold text-[#2E7D32]">{className}</p>
               </div>
               <div className="rounded-[1.4rem] bg-[#FFF8E1] px-4 py-5">
                 <p className="text-sm font-semibold text-slate-500">学校</p>
-                <p className="mt-2 font-math-display text-2xl font-extrabold text-[#EF6C00]">
-                  {schoolName}
-                </p>
+                <p className="mt-2 font-math-display text-2xl font-extrabold text-[#EF6C00]">{schoolName}</p>
               </div>
               <div className="rounded-[1.4rem] bg-[#F3E5F5] px-4 py-5">
                 <p className="text-sm font-semibold text-slate-500">学号</p>
-                <p className="mt-2 font-math-display text-2xl font-extrabold text-violet-700">
-                  {studentCode}
-                </p>
+                <p className="mt-2 font-math-display text-2xl font-extrabold text-violet-700">{studentCode}</p>
               </div>
             </div>
           </article>

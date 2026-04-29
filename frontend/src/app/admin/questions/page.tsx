@@ -328,7 +328,7 @@ export default function AdminQuestionsPage() {
             <div className="rounded-[1.5rem] bg-[#FFF6E8] px-5 py-5">
               <p className="font-semibold text-[#EF6C00]">导入与去重</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                提供 `id` 时优先更新原题；没有 `id` 时，系统会按“年级 + 题型 + 题干”自动去重。
+                提供 `id` 时优先更新原题；没有 `id` 时，系统会按"年级 + 题型 + 题干"自动去重。
               </p>
             </div>
             <div className="rounded-[1.5rem] bg-[#EEF4FF] px-5 py-5">

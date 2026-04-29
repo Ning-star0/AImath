@@ -87,7 +87,8 @@ apiClient.interceptors.response.use(
     }
 
     const rawMessage = error?.response?.data?.message ?? '请求失败，请稍后重试。';
-    const message = normalizeUserMessage(rawMessage);
+    const messageText = Array.isArray(rawMessage) ? rawMessage.join('；') : String(rawMessage);
+    const message = normalizeUserMessage(messageText);
     return Promise.reject(new Error(message));
   },
 );

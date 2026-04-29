@@ -171,7 +171,7 @@ export default function AdminUsersPage() {
   );
 
   const handleDeleteUser = async (userId: string, displayName: string) => {
-    const confirmed = window.confirm(`确认删除账号“${displayName}”吗？删除后会同时清理关联学习记录。`);
+    const confirmed = window.confirm(`确认删除账号"${displayName}"吗？删除后会同时清理关联学习记录。`);
     if (!confirmed) {
       return;
     }
@@ -192,7 +192,7 @@ export default function AdminUsersPage() {
           : current,
       );
       setFeedback(
-        `已删除账号“${response.deletedUser.displayName}”，并清理练习 ${response.cleanupSummary.exerciseRecordCount} 条、错题 ${response.cleanupSummary.wrongQuestionCount} 条。`,
+        `已删除账号"${response.deletedUser.displayName}"，并清理练习 ${response.cleanupSummary.exerciseRecordCount} 条、错题 ${response.cleanupSummary.wrongQuestionCount} 条。`,
       );
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '删除账号失败。');
@@ -209,8 +209,8 @@ export default function AdminUsersPage() {
     const note =
       window.prompt(
         decision === 'APPROVED'
-          ? `可填写“${displayName}”的审核备注（可选）`
-          : `请填写驳回“${displayName}”的原因（可选）`,
+          ? `可填写"${displayName}"的审核备注（可选）`
+          : `请填写驳回"${displayName}"的原因（可选）`,
       ) ?? '';
 
     setReviewingUserId(userId);
@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
     if (decision === 'APPROVED') {
       const classText =
         window.prompt(
-          `请确认“${displayName}”获批管理的班级。\n每行格式：年级|班级名称|学校名称`,
+          `请确认"${displayName}"获批管理的班级。\n每行格式：年级|班级名称|学校名称`,
           classListToText(requestedClasses),
         ) ?? '';
       approvedClasses = parseClassText(classText);
@@ -271,8 +271,8 @@ export default function AdminUsersPage() {
     const note =
       window.prompt(
         decision === 'APPROVED'
-          ? `可填写“${displayName}”的班级权限审核备注（可选）`
-          : `请填写驳回“${displayName}”班级权限申请的原因（可选）`,
+          ? `可填写"${displayName}"的班级权限审核备注（可选）`
+          : `请填写驳回"${displayName}"班级权限申请的原因（可选）`,
       ) ?? '';
 
     setReviewingUserId(userId);

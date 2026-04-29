@@ -140,7 +140,8 @@ export default function LoginPage() {
   const [showAdminEntry, setShowAdminEntry] = useState(false);
 
   const loginForm = useForm<LoginFormValues>({
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     defaultValues: {
       account: '',
       password: '',
@@ -211,18 +212,39 @@ export default function LoginPage() {
     }
   }, [classOptions, registerForm, registerRole]);
 
-  const onSubmitLogin = loginForm.handleSubmit(async (values) => {
+  const onSubmitLogin = async () => {
     setLoginError('');
+
+    const account = loginForm.getValues('account').trim();
+    const password = loginForm.getValues('password');
+
+    if (!account) {
+      loginForm.setError('account', { message: '请输入账号' });
+      return;
+    }
+    if (account.length < 4) {
+      loginForm.setError('account', { message: '请输入学号、工号、手机号、邮箱或用户名' });
+      return;
+    }
+    if (!password) {
+      loginForm.setError('password', { message: '请输入密码' });
+      return;
+    }
+    if (password.length < 6) {
+      loginForm.setError('password', { message: '密码至少需要 6 位' });
+      return;
+    }
+
     setLoginSubmitting(true);
 
     try {
       const payload: LoginPayload = {
-        account: values.account.trim(),
-        password: values.password,
+        account,
+        password,
         role: loginRole,
       };
       const result = await authService.login(payload);
-      setSession(result.accessToken, result.user, values.remember);
+      setSession(result.accessToken, result.user, loginForm.getValues('remember'));
       router.push(getRoleHomePath(result.user.role));
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -230,7 +252,7 @@ export default function LoginPage() {
     } finally {
       setLoginSubmitting(false);
     }
-  });
+  };
 
   const onSubmitRegister = registerForm.handleSubmit(async (values) => {
     setRegisterError('');
@@ -312,448 +334,693 @@ export default function LoginPage() {
   });
 
   return (
-    <main className="storybook-scene relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute left-0 top-0 h-72 w-72 rounded-full bg-white/70 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-16 h-80 w-80 rounded-full bg-[#FFF4C2]/60 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-[#8BC34A]/20 blur-3xl" />
+    <main className="relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute left-0 top-0 h-72 w-72 rounded-full bg-white/70 blur-3xl hidden sm:block" />
+      <div className="pointer-events-none absolute right-0 top-16 h-80 w-80 rounded-full bg-[#FFF4C2]/60 blur-3xl hidden sm:block" />
+      <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-[#8BC34A]/20 blur-3xl hidden sm:block" />
 
       <div className="mx-auto max-w-6xl pt-4 lg:pt-8">
-        <section className="portal-board relative overflow-hidden p-4 sm:p-6 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-[2rem] border-2 border-[#F0C95C] bg-[linear-gradient(180deg,rgba(255,255,247,0.97),rgba(255,255,255,0.92))] p-5 shadow-[0_18px_36px_rgba(255,193,7,0.12)] sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="math-chip-warning">正式账号入口</p>
-                  <h1 className="mt-3 font-math-display text-3xl font-extrabold text-ink sm:text-4xl">
-                    爱因数学星球账号中心
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-                    登录后系统会根据身份进入学生学习中心或教师工作台。
-                  </p>
-                </div>
+        {/* Mobile layout */}
+        <div className="sm:hidden">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-extrabold text-ink">爱因数学星球</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {mode === 'login' ? '登录你的账号' : '注册新账号'}
+            </p>
+          </div>
 
-                <div className="flex rounded-full border-2 border-[#F0C95C] bg-white/80 p-1 shadow-sm">
-                  {(['login', 'register'] as const).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => {
-                        setMode(item);
-                        setLoginError('');
-                        setRegisterError('');
-                      }}
-                      className={`rounded-full px-4 py-2 text-sm font-extrabold transition ${
-                        mode === item
-                          ? 'bg-[#3F51B5] text-white shadow-[0_12px_22px_rgba(63,81,181,0.28)]'
-                          : 'text-slate-600 hover:bg-[#FFF8D9]'
-                      }`}
-                    >
-                      {item === 'login' ? '登录' : '注册'}
-                    </button>
-                  ))}
-                </div>
+          {/* Mode toggle */}
+          <div className="mb-5 flex rounded-xl border border-slate-200 bg-white p-1">
+            {(['login', 'register'] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  setMode(item);
+                  setLoginError('');
+                  setRegisterError('');
+                }}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition ${
+                  mode === item
+                    ? 'bg-brand-700 text-white shadow-sm'
+                    : 'text-slate-500'
+                }`}
+              >
+                {item === 'login' ? '登录' : '注册'}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'login' ? (
+            <div className="space-y-4">
+              {/* Role selection - compact */}
+              <div className="flex gap-2">
+                {loginRoleOptions.map((item) => (
+                  <button
+                    key={item.role}
+                    type="button"
+                    onClick={() => {
+                      setLoginRole(item.role);
+                      setLoginError('');
+                    }}
+                    className={`flex-1 rounded-xl border px-3 py-3 text-center transition ${
+                      loginRole === item.role
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500'
+                    }`}
+                  >
+                    <p className="text-sm font-bold">{item.label}</p>
+                  </button>
+                ))}
               </div>
 
-              {mode === 'login' ? (
-                <div className="mt-6 space-y-5">
-                  <div className={`grid gap-3 ${showAdminEntry ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
-                    {loginRoleOptions.map((item) => (
-                      <button
-                        key={item.role}
-                        type="button"
-                        onClick={() => {
-                          setLoginRole(item.role);
-                          setLoginError('');
-                        }}
-                        className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
-                          loginRole === item.role
-                            ? 'border-[#4CAF50] bg-[linear-gradient(180deg,#F7FFF0,#FFFFFF)] shadow-[0_14px_28px_rgba(76,175,80,0.16)]'
-                            : 'border-[#F3E4A6] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,193,7,0.12)]'
-                        }`}
-                      >
-                        <p className="text-sm font-black text-slate-500">{item.label}</p>
-                        <p className="mt-2 font-math-display text-xl font-extrabold text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
-                      </button>
-                    ))}
+              <div className="space-y-4">
+                <div>
+                  <input
+                    value={loginForm.watch('account')}
+                    onChange={(e) => loginForm.setValue('account', e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                    placeholder="学号 / 工号 / 手机号 / 邮箱"
+                    autoComplete="username"
+                  />
+                  {loginForm.formState.errors.account ? (
+                    <p className="mt-1.5 text-xs text-red-500">{loginForm.formState.errors.account.message}</p>
+                  ) : null}
+                </div>
 
-                    {showAdminEntry ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLoginRole('ADMIN');
-                          setLoginError('');
-                        }}
-                        className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
-                          loginRole === 'ADMIN'
-                            ? 'border-[#607D8B] bg-[linear-gradient(180deg,#F5F8FB,#FFFFFF)] shadow-[0_14px_28px_rgba(96,125,139,0.16)]'
-                            : 'border-[#D9E2EA] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(96,125,139,0.12)]'
-                        }`}
-                      >
-                        <p className="text-sm font-black text-slate-500">管理入口</p>
-                        <p className="mt-2 font-math-display text-xl font-extrabold text-ink">系统管理中心</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
-                          用于平台账号、题库与审核权限管理。
-                        </p>
-                      </button>
-                    ) : null}
+                <div>
+                  <input
+                    value={loginForm.watch('password')}
+                    onChange={(e) => loginForm.setValue('password', e.target.value)}
+                    type="password"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                    placeholder="登录密码"
+                    autoComplete="current-password"
+                  />
+                  {loginForm.formState.errors.password ? (
+                    <p className="mt-1.5 text-xs text-red-500">{loginForm.formState.errors.password.message}</p>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={loginForm.watch('remember')}
+                      onChange={(e) => loginForm.setValue('remember', e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-700"
+                    />
+                    记住登录
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowRecoveryHint((value) => !value)}
+                    className="text-sm font-bold text-brand-700"
+                  >
+                    忘记密码
+                  </button>
+                </div>
+
+                {showRecoveryHint ? (
+                  <p className="rounded-lg bg-brand-50 px-3 py-2.5 text-xs text-slate-600">
+                    如需找回密码，请联系学校老师或平台管理员协助重置。
+                  </p>
+                ) : null}
+
+                {loginError ? (
+                  <p className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-600">{loginError}</p>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => void onSubmitLogin()}
+                  disabled={loginSubmitting}
+                  className="w-full rounded-xl bg-brand-700 py-3.5 text-sm font-bold text-white disabled:opacity-70"
+                >
+                  {loginSubmitting ? '验证中...' : '登录'}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAdminEntry((value) => !value)}
+                className="mt-4 w-full text-center text-xs text-slate-400"
+              >
+                {showAdminEntry ? '收起管理入口' : '管理入口'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Register role selection */}
+              <div className="flex gap-2">
+                {registerRoleOptions.map((item) => (
+                  <button
+                    key={item.role}
+                    type="button"
+                    onClick={() => {
+                      setRegisterRole(item.role);
+                      setRegisterError('');
+                      setRegisterNextStep(null);
+                    }}
+                    className={`flex-1 rounded-xl border px-3 py-3 text-center transition ${
+                      registerRole === item.role
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500'
+                    }`}
+                  >
+                    <p className="text-sm font-bold">{item.label}</p>
+                  </button>
+                ))}
+              </div>
+
+              <form className="space-y-4" onSubmit={onSubmitRegister}>
+                <input
+                  {...registerForm.register('fullName', {
+                    required: '请输入姓名',
+                    minLength: { value: 2, message: '姓名至少需要 2 个字符' },
+                  })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                  placeholder="真实姓名"
+                />
+
+                {registerRole !== 'PARENT' ? (
+                  <input
+                    {...registerForm.register(registerRole === 'STUDENT' ? 'studentCode' : 'teacherCode', {
+                      required: registerRole === 'STUDENT' ? '请输入学号' : '请输入工号',
+                      minLength: { value: 4, message: '编号至少需要 4 位' },
+                    })}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                    placeholder={registerRole === 'STUDENT' ? '学号' : '工号'}
+                  />
+                ) : null}
+
+                {registerRole === 'STUDENT' ? (
+                  <div className="flex gap-3">
+                    <select {...registerForm.register('grade', { required: '请选择年级' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      <option value="">年级</option>
+                      {GRADE_OPTIONS.map((grade) => (
+                        <option key={grade} value={grade}>{grade} 年级</option>
+                      ))}
+                    </select>
+                    <select {...registerForm.register('className', { required: '请选择班级' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      {classOptions.map((classItem) => (
+                        <option key={classItem.value} value={classItem.value}>{classItem.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : registerRole === 'TEACHER' ? (
+                  <div className="flex gap-3">
+                    <select {...registerForm.register('schoolName', { required: '请选择学校' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      {SCHOOL_OPTIONS.map((schoolName) => (
+                        <option key={schoolName} value={schoolName}>{schoolName}</option>
+                      ))}
+                    </select>
+                    <select {...registerForm.register('subject', { required: '请选择学科' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      {SUBJECT_OPTIONS.map((subject) => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <select {...registerForm.register('relationLabel', { required: '请选择关系' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      {['妈妈', '爸爸', '监护人', '家人'].map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                    <select {...registerForm.register('schoolName', { required: '请选择学校' })} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none">
+                      {SCHOOL_OPTIONS.map((schoolName) => (
+                        <option key={schoolName} value={schoolName}>{schoolName}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <input
+                  {...registerForm.register('contact', {
+                    required: '请输入手机号或邮箱',
+                    validate: (value) =>
+                      isPhone(value) || isEmail(value) || '请输入有效的手机号或邮箱',
+                  })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                  placeholder="手机号或邮箱"
+                />
+
+                <input
+                  {...registerForm.register('password', {
+                    required: '请输入密码',
+                    minLength: { value: 6, message: '密码至少需要 6 位' },
+                  })}
+                  type="password"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                  placeholder="设置密码（至少6位）"
+                />
+
+                <input
+                  {...registerForm.register('confirmPassword', { required: '请再次输入密码' })}
+                  type="password"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-brand-400"
+                  placeholder="确认密码"
+                />
+
+                <label className="flex items-start gap-2 text-xs text-slate-500">
+                  <input
+                    type="checkbox"
+                    {...registerForm.register('agreement', { required: '请先同意用户协议' })}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700"
+                  />
+                  <span>
+                    我已阅读并同意
+                    <Link href="/agreement" className="font-bold text-brand-700">《用户协议》</Link>
+                    与
+                    <Link href="/privacy" className="font-bold text-brand-700">《隐私政策》</Link>
+                  </span>
+                </label>
+
+                {registerError ? (
+                  <p className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-600">{registerError}</p>
+                ) : null}
+
+                {registerNextStep ? (
+                  <div className="rounded-lg bg-brand-50 px-3 py-3">
+                    <p className="text-sm font-bold text-brand-700">{registerNextStep.title}</p>
+                    <p className="mt-1 text-xs text-slate-600">{registerNextStep.description}</p>
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={registerSubmitting}
+                  className="w-full rounded-xl bg-brand-700 py-3.5 text-sm font-bold text-white disabled:opacity-70"
+                >
+                  {registerSubmitting ? '提交中...' : '注册'}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop layout */}
+        <section className="hidden sm:block">
+          <div className="portal-board relative overflow-hidden p-4 sm:p-6 lg:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <section className="rounded-[2rem] border-2 border-[#F0C95C] bg-[linear-gradient(180deg,rgba(255,255,247,0.97),rgba(255,255,255,0.92))] p-5 shadow-[0_18px_36px_rgba(255,193,7,0.12)] sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="math-chip-warning">正式账号入口</p>
+                    <h1 className="mt-3 font-math-display text-3xl font-extrabold text-ink sm:text-4xl">
+                      爱因数学星球账号中心
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                      登录后系统会根据身份进入学生学习中心或教师工作台。
+                    </p>
                   </div>
 
-                  <form className="space-y-5" onSubmit={onSubmitLogin}>
-                    <div>
-                      <label className="mb-2 block text-sm font-extrabold text-slate-700">账号</label>
-                      <input
-                        {...loginForm.register('account', {
-                          required: '请输入账号',
-                          validate: (value) =>
-                            value.trim().length >= 4 || '请输入学号、工号、手机号、邮箱或用户名',
-                        })}
-                        className="math-input"
-                        placeholder="请输入学号 / 工号 / 手机号 / 邮箱 / 用户名"
-                      />
-                      {loginForm.formState.errors.account ? (
-                        <p className="mt-2 text-sm font-semibold text-red-500">
-                          {loginForm.formState.errors.account.message}
-                        </p>
-                      ) : (
-                        <p className="mt-2 text-xs font-semibold text-slate-500">
-                          当前入口：
-                          {loginRole === 'ADMIN'
-                            ? '系统管理中心'
-                            : loginRole === 'PARENT'
-                              ? '家长端'
-                              : loginRoleOptions.find((item) => item.role === loginRole)?.title}
-                        </p>
-                      )}
-                    </div>
+                  <div className="flex rounded-full border-2 border-[#F0C95C] bg-white/80 p-1 shadow-sm">
+                    {(['login', 'register'] as const).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setMode(item);
+                          setLoginError('');
+                          setRegisterError('');
+                        }}
+                        className={`rounded-full px-4 py-2 text-sm font-extrabold transition ${
+                          mode === item
+                            ? 'bg-[#3F51B5] text-white shadow-[0_12px_22px_rgba(63,81,181,0.28)]'
+                            : 'text-slate-600 hover:bg-[#FFF8D9]'
+                        }`}
+                      >
+                        {item === 'login' ? '登录' : '注册'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="mb-2 block text-sm font-extrabold text-slate-700">密码</label>
-                      <input
-                        {...loginForm.register('password', {
-                          required: '请输入密码',
-                          minLength: { value: 6, message: '密码至少需要 6 位' },
-                        })}
-                        type="password"
-                        className="math-input"
-                        placeholder="请输入登录密码"
-                      />
-                      {loginForm.formState.errors.password ? (
-                        <p className="mt-2 text-sm font-semibold text-red-500">
-                          {loginForm.formState.errors.password.message}
-                        </p>
+                {mode === 'login' ? (
+                  <div className="mt-6 space-y-5">
+                    <div className={`grid gap-3 ${showAdminEntry ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+                      {loginRoleOptions.map((item) => (
+                        <button
+                          key={item.role}
+                          type="button"
+                          onClick={() => {
+                            setLoginRole(item.role);
+                            setLoginError('');
+                          }}
+                          className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
+                            loginRole === item.role
+                              ? 'border-[#4CAF50] bg-[linear-gradient(180deg,#F7FFF0,#FFFFFF)] shadow-[0_14px_28px_rgba(76,175,80,0.16)]'
+                              : 'border-[#F3E4A6] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,193,7,0.12)]'
+                          }`}
+                        >
+                          <p className="text-sm font-black text-slate-500">{item.label}</p>
+                          <p className="mt-2 font-math-display text-xl font-extrabold text-ink">{item.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+                        </button>
+                      ))}
+
+                      {showAdminEntry ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginRole('ADMIN');
+                            setLoginError('');
+                          }}
+                          className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
+                            loginRole === 'ADMIN'
+                              ? 'border-[#607D8B] bg-[linear-gradient(180deg,#F5F8FB,#FFFFFF)] shadow-[0_14px_28px_rgba(96,125,139,0.16)]'
+                              : 'border-[#D9E2EA] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(96,125,139,0.12)]'
+                          }`}
+                        >
+                          <p className="text-sm font-black text-slate-500">管理入口</p>
+                          <p className="mt-2 font-math-display text-xl font-extrabold text-ink">系统管理中心</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            用于平台账号、题库与审核权限管理。
+                          </p>
+                        </button>
                       ) : null}
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] bg-[#F8FAFF] px-4 py-3">
-                      <label className="flex items-center gap-3 text-sm font-semibold text-slate-600">
-                        <input
-                          type="checkbox"
-                          {...loginForm.register('remember')}
-                          className="h-4 w-4 rounded border-slate-300 text-[#3F51B5] focus:ring-[#3F51B5]"
-                        />
-                        记住登录状态
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowRecoveryHint((value) => !value)}
-                        className="text-sm font-extrabold text-[#3F51B5] underline-offset-4 hover:underline"
-                      >
-                        忘记密码
-                      </button>
-                    </div>
-
-                    {showRecoveryHint ? (
-                      <div className="rounded-[1.3rem] border border-[#D8E6FF] bg-[#F6FAFF] px-4 py-4 text-sm leading-7 text-slate-600">
-                        如需找回密码，可通过帮助中心提交账号核验申请，或联系学校老师、平台管理员协助重置。
-                      </div>
-                    ) : null}
-
-                    {loginError ? (
-                      <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                        {loginError}
-                      </div>
-                    ) : null}
-
-                    <button
-                      type="submit"
-                      disabled={loginSubmitting}
-                      className="math-button-primary w-full rounded-[1.2rem] px-5 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {loginSubmitting ? '正在验证账号信息...' : '登录进入平台'}
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="mt-6 space-y-5">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {registerRoleOptions.map((item) => (
-                      <button
-                        key={item.role}
-                        type="button"
-                        onClick={() => {
-                          setRegisterRole(item.role);
-                          setRegisterError('');
-                          setRegisterNextStep(null);
-                        }}
-                        className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
-                          registerRole === item.role
-                            ? 'border-[#4CAF50] bg-[linear-gradient(180deg,#F7FFF0,#FFFFFF)] shadow-[0_14px_28px_rgba(76,175,80,0.16)]'
-                            : 'border-[#F3E4A6] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,193,7,0.12)]'
-                        }`}
-                      >
-                        <p className="text-sm font-black text-slate-500">{item.label}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  <form className="space-y-5" onSubmit={onSubmitRegister}>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void onSubmitLogin(); }}>
                       <div>
-                        <label className="mb-2 block text-sm font-extrabold text-slate-700">姓名</label>
+                        <label className="mb-2 block text-sm font-extrabold text-slate-700">账号</label>
                         <input
-                          {...registerForm.register('fullName', {
-                            required: '请输入姓名',
-                            minLength: { value: 2, message: '姓名至少需要 2 个字符' },
+                          {...loginForm.register('account', {
+                            required: '请输入账号',
+                            validate: (value) =>
+                              value.trim().length >= 4 || '请输入学号、工号、手机号、邮箱或用户名',
                           })}
                           className="math-input"
-                          placeholder="请输入真实姓名"
+                          placeholder="请输入学号 / 工号 / 手机号 / 邮箱 / 用户名"
                         />
-                      </div>
-
-                      {registerRole !== 'PARENT' ? (
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">
-                            {registerRole === 'STUDENT' ? '学号' : '工号'}
-                          </label>
-                          <input
-                            {...registerForm.register(registerRole === 'STUDENT' ? 'studentCode' : 'teacherCode', {
-                              required: registerRole === 'STUDENT' ? '请输入学号' : '请输入工号',
-                              minLength: { value: 4, message: '编号至少需要 4 位' },
-                            })}
-                            className="math-input"
-                            placeholder={registerRole === 'STUDENT' ? '请输入学号' : '请输入工号'}
-                          />
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">学校</label>
-                          <select
-                            {...registerForm.register('schoolName', { required: '请选择学校' })}
-                            className="math-input"
-                          >
-                            {SCHOOL_OPTIONS.map((schoolName) => (
-                              <option key={schoolName} value={schoolName}>
-                                {schoolName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {registerRole === 'STUDENT' ? (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">年级</label>
-                          <select {...registerForm.register('grade', { required: '请选择年级' })} className="math-input">
-                            <option value="">请选择年级</option>
-                            {GRADE_OPTIONS.map((grade) => (
-                              <option key={grade} value={grade}>
-                                {grade} 年级
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">班级</label>
-                          <select
-                            {...registerForm.register('className', { required: '请选择班级' })}
-                            className="math-input"
-                          >
-                            {classOptions.map((classItem) => (
-                              <option key={classItem.value} value={classItem.value}>
-                                {classItem.label}
-                              </option>
-                            ))}
-                          </select>
-                          <p className="mt-2 text-xs font-semibold text-slate-500">
-                            学生在注册时选择班级，注册后如需调整，由管理员统一处理。
+                        {loginForm.formState.errors.account ? (
+                          <p className="mt-2 text-sm font-semibold text-red-500">
+                            {loginForm.formState.errors.account.message}
                           </p>
-                        </div>
+                        ) : (
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            当前入口：
+                            {loginRole === 'ADMIN'
+                              ? '系统管理中心'
+                              : loginRole === 'PARENT'
+                                ? '家长端'
+                                : loginRoleOptions.find((item) => item.role === loginRole)?.title}
+                          </p>
+                        )}
                       </div>
-                    ) : registerRole === 'TEACHER' ? (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">学校</label>
-                          <select
-                            {...registerForm.register('schoolName', { required: '请选择学校' })}
-                            className="math-input"
-                          >
-                            {SCHOOL_OPTIONS.map((schoolName) => (
-                              <option key={schoolName} value={schoolName}>
-                                {schoolName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
 
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">学科</label>
-                          <select
-                            {...registerForm.register('subject', { required: '请选择学科' })}
-                            className="math-input"
-                          >
-                            {SUBJECT_OPTIONS.map((subject) => (
-                              <option key={subject} value={subject}>
-                                {subject}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-2 block text-sm font-extrabold text-slate-700">关系</label>
-                          <select
-                            {...registerForm.register('relationLabel', { required: '请选择关系' })}
-                            className="math-input"
-                          >
-                            {['妈妈', '爸爸', '监护人', '家人'].map((item) => (
-                              <option key={item} value={item}>
-                                {item}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="rounded-[1.2rem] bg-[#F8FBFF] px-4 py-4 text-sm leading-7 text-slate-600">
-                          家长注册成功后，需在家长端输入学生学号和学生密码完成孩子绑定，之后只能查看自己已绑定孩子的数据。
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="mb-2 block text-sm font-extrabold text-slate-700">手机号或邮箱</label>
-                      <input
-                        {...registerForm.register('contact', {
-                          required: '请输入手机号或邮箱',
-                          validate: (value) =>
-                            isPhone(value) || isEmail(value) || '请输入有效的手机号或邮箱',
-                        })}
-                        className="math-input"
-                        placeholder="用于通知、找回密码与账号验证"
-                      />
-                      <p className="mt-2 text-xs font-semibold text-slate-500">{contactLabel}</p>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-sm font-extrabold text-slate-700">密码</label>
                         <input
-                          {...registerForm.register('password', {
+                          {...loginForm.register('password', {
                             required: '请输入密码',
                             minLength: { value: 6, message: '密码至少需要 6 位' },
                           })}
                           type="password"
                           className="math-input"
-                          placeholder="请设置登录密码"
+                          placeholder="请输入登录密码"
                         />
+                        {loginForm.formState.errors.password ? (
+                          <p className="mt-2 text-sm font-semibold text-red-500">
+                            {loginForm.formState.errors.password.message}
+                          </p>
+                        ) : null}
                       </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-extrabold text-slate-700">确认密码</label>
-                        <input
-                          {...registerForm.register('confirmPassword', {
-                            required: '请再次输入密码',
-                          })}
-                          type="password"
-                          className="math-input"
-                          placeholder="请再次输入密码"
-                        />
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] bg-[#F8FAFF] px-4 py-3">
+                        <label className="flex items-center gap-3 text-sm font-semibold text-slate-600">
+                          <input
+                            type="checkbox"
+                            {...loginForm.register('remember')}
+                            className="h-4 w-4 rounded border-slate-300 text-[#3F51B5] focus:ring-[#3F51B5]"
+                          />
+                          记住登录状态
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowRecoveryHint((value) => !value)}
+                          className="text-sm font-extrabold text-[#3F51B5] underline-offset-4 hover:underline"
+                        >
+                          忘记密码
+                        </button>
                       </div>
+
+                      {showRecoveryHint ? (
+                        <div className="rounded-[1.3rem] border border-[#D8E6FF] bg-[#F6FAFF] px-4 py-4 text-sm leading-7 text-slate-600">
+                          如需找回密码，可通过帮助中心提交账号核验申请，或联系学校老师、平台管理员协助重置。
+                        </div>
+                      ) : null}
+
+                      {loginError ? (
+                        <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                          {loginError}
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => void onSubmitLogin()}
+                        disabled={loginSubmitting}
+                        className="math-button-primary w-full rounded-[1.2rem] px-5 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {loginSubmitting ? '正在验证账号信息...' : '登录进入平台'}
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="mt-6 space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {registerRoleOptions.map((item) => (
+                        <button
+                          key={item.role}
+                          type="button"
+                          onClick={() => {
+                            setRegisterRole(item.role);
+                            setRegisterError('');
+                            setRegisterNextStep(null);
+                          }}
+                          className={`rounded-[1.4rem] border-2 px-4 py-4 text-left transition ${
+                            registerRole === item.role
+                              ? 'border-[#4CAF50] bg-[linear-gradient(180deg,#F7FFF0,#FFFFFF)] shadow-[0_14px_28px_rgba(76,175,80,0.16)]'
+                              : 'border-[#F3E4A6] bg-white/90 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(255,193,7,0.12)]'
+                          }`}
+                        >
+                          <p className="text-sm font-black text-slate-500">{item.label}</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+                        </button>
+                      ))}
                     </div>
 
-                    <label className="flex items-start gap-3 rounded-[1.2rem] bg-[#F8FAFF] px-4 py-3 text-sm text-slate-600">
-                      <input
-                        type="checkbox"
-                        {...registerForm.register('agreement', {
-                          required: '请先同意用户协议和隐私政策',
-                        })}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[#3F51B5] focus:ring-[#3F51B5]"
-                      />
-                      <span>
-                        我已阅读并同意
-                        <Link href="/agreement" className="mx-1 font-extrabold text-[#3F51B5]">
-                          《用户协议》
-                        </Link>
-                        与
-                        <Link href="/privacy" className="mx-1 font-extrabold text-[#3F51B5]">
-                          《隐私政策》
-                        </Link>
-                      </span>
-                    </label>
+                    <form className="space-y-5" onSubmit={onSubmitRegister}>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-extrabold text-slate-700">姓名</label>
+                          <input
+                            {...registerForm.register('fullName', {
+                              required: '请输入姓名',
+                              minLength: { value: 2, message: '姓名至少需要 2 个字符' },
+                            })}
+                            className="math-input"
+                            placeholder="请输入真实姓名"
+                          />
+                        </div>
 
-                    {registerError ? (
-                      <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                        {registerError}
+                        {registerRole !== 'PARENT' ? (
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">
+                              {registerRole === 'STUDENT' ? '学号' : '工号'}
+                            </label>
+                            <input
+                              {...registerForm.register(registerRole === 'STUDENT' ? 'studentCode' : 'teacherCode', {
+                                required: registerRole === 'STUDENT' ? '请输入学号' : '请输入工号',
+                                minLength: { value: 4, message: '编号至少需要 4 位' },
+                              })}
+                              className="math-input"
+                              placeholder={registerRole === 'STUDENT' ? '请输入学号' : '请输入工号'}
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">学校</label>
+                            <select
+                              {...registerForm.register('schoolName', { required: '请选择学校' })}
+                              className="math-input"
+                            >
+                              {SCHOOL_OPTIONS.map((schoolName) => (
+                                <option key={schoolName} value={schoolName}>{schoolName}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
-                    ) : null}
 
-                    {registerNextStep ? (
-                      <div className="rounded-[1.2rem] border border-[#D8E6FF] bg-[#F8FBFF] px-4 py-4">
-                        <p className="text-sm font-black text-brand-700">{registerNextStep.title}</p>
-                        <p className="mt-2 text-sm leading-7 text-slate-600">{registerNextStep.description}</p>
+                      {registerRole === 'STUDENT' ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">年级</label>
+                            <select {...registerForm.register('grade', { required: '请选择年级' })} className="math-input">
+                              <option value="">请选择年级</option>
+                              {GRADE_OPTIONS.map((grade) => (
+                                <option key={grade} value={grade}>{grade} 年级</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">班级</label>
+                            <select {...registerForm.register('className', { required: '请选择班级' })} className="math-input">
+                              {classOptions.map((classItem) => (
+                                <option key={classItem.value} value={classItem.value}>{classItem.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : registerRole === 'TEACHER' ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">学校</label>
+                            <select {...registerForm.register('schoolName', { required: '请选择学校' })} className="math-input">
+                              {SCHOOL_OPTIONS.map((schoolName) => (
+                                <option key={schoolName} value={schoolName}>{schoolName}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">学科</label>
+                            <select {...registerForm.register('subject', { required: '请选择学科' })} className="math-input">
+                              {SUBJECT_OPTIONS.map((subject) => (
+                                <option key={subject} value={subject}>{subject}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-extrabold text-slate-700">关系</label>
+                            <select {...registerForm.register('relationLabel', { required: '请选择关系' })} className="math-input">
+                              {['妈妈', '爸爸', '监护人', '家人'].map((item) => (
+                                <option key={item} value={item}>{item}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="rounded-[1.2rem] bg-[#F8FBFF] px-4 py-4 text-sm leading-7 text-slate-600">
+                            家长注册成功后，需在家长端输入学生学号和学生密码完成孩子绑定。
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="mb-2 block text-sm font-extrabold text-slate-700">手机号或邮箱</label>
+                        <input
+                          {...registerForm.register('contact', {
+                            required: '请输入手机号或邮箱',
+                            validate: (value) =>
+                              isPhone(value) || isEmail(value) || '请输入有效的手机号或邮箱',
+                          })}
+                          className="math-input"
+                          placeholder="用于通知、找回密码与账号验证"
+                        />
                       </div>
-                    ) : null}
 
-                    <button
-                      type="submit"
-                      disabled={registerSubmitting}
-                      className="math-button-primary w-full rounded-[1.2rem] px-5 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {registerSubmitting ? '正在提交注册信息...' : '提交注册信息'}
-                    </button>
-                  </form>
-                </div>
-              )}
-            </section>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-extrabold text-slate-700">密码</label>
+                          <input
+                            {...registerForm.register('password', {
+                              required: '请输入密码',
+                              minLength: { value: 6, message: '密码至少需要 6 位' },
+                            })}
+                            type="password"
+                            className="math-input"
+                            placeholder="请设置登录密码"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm font-extrabold text-slate-700">确认密码</label>
+                          <input
+                            {...registerForm.register('confirmPassword', { required: '请再次输入密码' })}
+                            type="password"
+                            className="math-input"
+                            placeholder="请再次输入密码"
+                          />
+                        </div>
+                      </div>
 
-            <aside className="space-y-4 rounded-[2rem] border-2 border-[#F0C95C] bg-[linear-gradient(180deg,rgba(255,255,251,0.94),rgba(255,255,255,0.9))] p-5 shadow-[0_18px_36px_rgba(255,193,7,0.12)] sm:p-6">
-              <EinsteinTipCard
-                tone="green"
-                message="学生注册后可直接开始练习；教师注册完成后，还需申请班级管理权限，审核通过后才能查看对应班级学生信息。"
-              />
+                      <label className="flex items-start gap-3 rounded-[1.2rem] bg-[#F8FAFF] px-4 py-3 text-sm text-slate-600">
+                        <input
+                          type="checkbox"
+                          {...registerForm.register('agreement', { required: '请先同意用户协议' })}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#3F51B5] focus:ring-[#3F51B5]"
+                        />
+                        <span>
+                          我已阅读并同意
+                          <Link href="/agreement" className="mx-1 font-extrabold text-[#3F51B5]">《用户协议》</Link>
+                          与
+                          <Link href="/privacy" className="mx-1 font-extrabold text-[#3F51B5]">《隐私政策》</Link>
+                        </span>
+                      </label>
 
-              <div className="rounded-[1.5rem] border border-[#E6F0FF] bg-white px-5 py-5">
-                <p className="text-sm font-black text-slate-500">登录后可做什么</p>
-                <div className="mt-4 space-y-4 text-sm leading-7 text-slate-600">
-                  <div>
-                    <p className="font-extrabold text-ink">学生学习中心</p>
-                    <p>完成练习闯关、AI 讲题、错题复习与学习报告查看。</p>
+                      {registerError ? (
+                        <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                          {registerError}
+                        </div>
+                      ) : null}
+
+                      {registerNextStep ? (
+                        <div className="rounded-[1.2rem] border border-[#D8E6FF] bg-[#F8FBFF] px-4 py-4">
+                          <p className="text-sm font-black text-brand-700">{registerNextStep.title}</p>
+                          <p className="mt-2 text-sm leading-7 text-slate-600">{registerNextStep.description}</p>
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="submit"
+                        disabled={registerSubmitting}
+                        className="math-button-primary w-full rounded-[1.2rem] px-5 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {registerSubmitting ? '正在提交注册信息...' : '提交注册信息'}
+                      </button>
+                    </form>
                   </div>
-                  <div>
-                    <p className="font-extrabold text-ink">教师工作台</p>
-                    <p>查看授权班级的学生表现、薄弱点与 AI 学情分析。</p>
+                )}
+              </section>
+
+              <aside className="space-y-4 rounded-[2rem] border-2 border-[#F0C95C] bg-[linear-gradient(180deg,rgba(255,255,251,0.94),rgba(255,255,255,0.9))] p-5 shadow-[0_18px_36px_rgba(255,193,7,0.12)] sm:p-6">
+                <EinsteinTipCard
+                  tone="green"
+                  message="学生注册后可直接开始练习；教师注册完成后，还需申请班级管理权限，审核通过后才能查看对应班级学生信息。"
+                />
+
+                <div className="rounded-[1.5rem] border border-[#E6F0FF] bg-white px-5 py-5">
+                  <p className="text-sm font-black text-slate-500">登录后可做什么</p>
+                  <div className="mt-4 space-y-4 text-sm leading-7 text-slate-600">
+                    <div>
+                      <p className="font-extrabold text-ink">学生学习中心</p>
+                      <p>完成练习闯关、AI 讲题、错题复习与学习报告查看。</p>
+                    </div>
+                    <div>
+                      <p className="font-extrabold text-ink">教师工作台</p>
+                      <p>查看授权班级的学生表现、薄弱点与 AI 学情分析。</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-[1.5rem] border border-[#E6F0FF] bg-white px-5 py-5 text-sm leading-7 text-slate-600">
-                <p className="font-extrabold text-ink">帮助与支持</p>
-                <p className="mt-2">如需找回密码、处理审核或开通管理员入口，请联系学校管理员或平台支持。</p>
-                <button
-                  type="button"
-                  onClick={() => setShowAdminEntry((value) => !value)}
-                  className="mt-3 text-sm font-extrabold text-[#3F51B5] underline-offset-4 hover:underline"
-                >
-                  {showAdminEntry ? '收起管理入口' : '显示管理入口'}
-                </button>
-              </div>
-            </aside>
+                <div className="rounded-[1.5rem] border border-[#E6F0FF] bg-white px-5 py-5 text-sm leading-7 text-slate-600">
+                  <p className="font-extrabold text-ink">帮助与支持</p>
+                  <p className="mt-2">如需找回密码、处理审核或开通管理员入口，请联系学校管理员或平台支持。</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminEntry((value) => !value)}
+                    className="mt-3 text-sm font-extrabold text-[#3F51B5] underline-offset-4 hover:underline"
+                  >
+                    {showAdminEntry ? '收起管理入口' : '显示管理入口'}
+                  </button>
+                </div>
+              </aside>
+            </div>
           </div>
         </section>
       </div>

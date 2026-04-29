@@ -191,7 +191,7 @@ export default function StudentReportsPage() {
       const response = await aiService.askQuestion({
         originalQuestion: `请根据以下学习数据，生成一份详细的学习总结。要求：
 1. 用 4 到 6 条分点步骤输出，适合小学阶段学生和家长阅读。
-2. finalAnswer 必须写成一段完整总结，包含“整体表现”“当前薄弱点”“下一步建议”三个部分。
+2. finalAnswer 必须写成一段完整总结，包含"整体表现""当前薄弱点""下一步建议"三个部分。
 3. 不要空泛鼓励，要结合具体数据分析。
 4. 语言要清晰、具体、适龄。
 
@@ -241,7 +241,7 @@ ${strongestPoints || '暂无'}`,
       const response = await aiService.askQuestion({
         originalQuestion: `请根据以下学习数据，用 2 到 3 条简短建议分析当前最薄弱知识点。要求：
 1. 每条建议都要具体，适合家长或学生立刻执行。
-2. finalAnswer 用一段话总结“为什么它是当前最薄弱点、该怎么补”。
+2. finalAnswer 用一段话总结"为什么它是当前最薄弱点、该怎么补"。
 
 知识点：${latestWeakPoint.knowledgePointName}
 正确率：${latestWeakPoint.correctRate}%
@@ -299,135 +299,222 @@ ${strongestPoints || '暂无'}`,
 
   return (
     <PageShell title="学习报告" description="报告页只保留核心结果、薄弱点和下一步建议，不再展示过多分析块。">
-      <section className="portal-board px-5 py-5 sm:px-6">
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="grid gap-4">
-            <div className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="math-chip math-chip-primary">成长报告</span>
-                <span className="math-chip math-chip-success">重点结果</span>
-              </div>
-              <h2 className="font-math-display text-3xl font-extrabold text-ink">最近这段时间，你学得怎么样</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{getEncouragement(report)}</p>
+      {/* Mobile layout */}
+      <div className="sm:hidden">
+        {/* Stats grid */}
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">做题数</p>
+            <p className="mt-1 text-xl font-extrabold text-brand-700">{report.totalQuestions}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">正确率</p>
+            <p className="mt-1 text-xl font-extrabold text-emerald-600">{report.accuracyRate}%</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">答对</p>
+            <p className="mt-1 text-xl font-extrabold text-emerald-600">{report.correctCount}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">答错</p>
+            <p className="mt-1 text-xl font-extrabold text-red-500">{report.wrongCount}</p>
+          </div>
+        </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">总做题数</p>
-                  <p className="mt-2 text-3xl font-extrabold text-brand-700">{report.totalQuestions}</p>
+        <p className="mb-3 text-sm text-slate-500">{getEncouragement(report)}</p>
+
+        {/* Weak point */}
+        <div className="mb-3 rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-400">当前薄弱点</p>
+            <button
+              type="button"
+              onClick={() => void handleRefreshWeakPoint()}
+              disabled={weakPointRefreshing}
+              className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-500 disabled:opacity-60"
+            >
+              {weakPointRefreshing ? '刷新中' : '刷新'}
+            </button>
+          </div>
+          <p className="mt-2 text-base font-extrabold text-ink">{weakPoint?.knowledgePointName ?? '暂无'}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {weakPoint
+              ? `正确率 ${weakPoint.correctRate}%，建议优先复习`
+              : '继续练习后会生成分析'}
+          </p>
+          {weakPointInsight ? (
+            <p className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-slate-600">{weakPointInsight}</p>
+          ) : null}
+        </div>
+
+        {/* Growth */}
+        <div className="mb-3 rounded-xl bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-400">成长激励</p>
+          <p className="mt-1 text-lg font-extrabold text-ink">Lv.{rewardProgress.level} · {levelTitle.title}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {rewardState.totalStars} 颗星 · 连续 {rewardState.streakDays} 天
+          </p>
+        </div>
+
+        {/* AI summary */}
+        <div className="mb-3 rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-400">AI 学习总结</p>
+            <button
+              type="button"
+              onClick={() => void handleGenerateAiSummary()}
+              disabled={aiSummaryLoading}
+              className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-500 disabled:opacity-60"
+            >
+              {aiSummaryLoading ? '生成中' : '生成'}
+            </button>
+          </div>
+          {aiSummary ? (
+            <div className="mt-3">
+              <CompactAiResult title="学习总结" result={aiSummary} loading={false} variant="summary" />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-slate-400">点击"生成"查看学习总结</p>
+          )}
+        </div>
+
+        {/* Quick links */}
+        <div className="flex gap-2">
+          <a href="/student/practice" className="flex-1 rounded-xl bg-brand-700 py-3 text-center text-sm font-bold text-white">
+            去练习
+          </a>
+          <a href="/student/wrongbook" className="flex-1 rounded-xl border border-slate-200 py-3 text-center text-sm font-bold text-slate-600">
+            错题本
+          </a>
+          <a href="/student/ai-qa" className="flex-1 rounded-xl border border-slate-200 py-3 text-center text-sm font-bold text-slate-600">
+            问 AI
+          </a>
+        </div>
+      </div>
+
+      {/* Desktop layout */}
+      <section className="hidden sm:block">
+        <div className="portal-board px-5 py-5 sm:px-6">
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid gap-4">
+              <div className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="math-chip math-chip-primary">成长报告</span>
+                  <span className="math-chip math-chip-success">重点结果</span>
                 </div>
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">答对</p>
-                  <p className="mt-2 text-3xl font-extrabold text-emerald-600">{report.correctCount}</p>
+                <h2 className="font-math-display text-3xl font-extrabold text-ink">最近这段时间，你学得怎么样</h2>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{getEncouragement(report)}</p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">总做题数</p>
+                    <p className="mt-2 text-3xl font-extrabold text-brand-700">{report.totalQuestions}</p>
+                  </div>
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">答对</p>
+                    <p className="mt-2 text-3xl font-extrabold text-emerald-600">{report.correctCount}</p>
+                  </div>
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">答错</p>
+                    <p className="mt-2 text-3xl font-extrabold text-red-600">{report.wrongCount}</p>
+                  </div>
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">正确率</p>
+                    <p className="mt-2 text-3xl font-extrabold text-[#2E7D32]">{report.accuracyRate}%</p>
+                  </div>
                 </div>
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">答错</p>
-                  <p className="mt-2 text-3xl font-extrabold text-red-600">{report.wrongCount}</p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-brand-700">当前薄弱点</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleRefreshWeakPoint()}
+                      disabled={weakPointRefreshing}
+                      className="math-button-secondary rounded-[0.9rem] px-3 py-2 text-xs font-extrabold text-slate-700 disabled:opacity-60"
+                    >
+                      {weakPointRefreshing ? '刷新中' : '刷新分析'}
+                    </button>
+                  </div>
+                  <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">
+                    {weakPoint?.knowledgePointName ?? '暂无'}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    {weakPoint
+                      ? `当前正确率 ${weakPoint.correctRate}% ，建议优先安排对应错题和专项练习。`
+                      : '继续完成练习后，这里会生成更准确的分析。'}
+                  </p>
+                  {weakPointInsight ? (
+                    <div className="mt-3 rounded-[1rem] bg-brand-50/60 px-4 py-3 text-sm leading-7 text-slate-700">
+                      {weakPointInsight}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">正确率</p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#2E7D32]">{report.accuracyRate}%</p>
+                <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+                  <p className="text-sm font-black text-brand-700">成长激励</p>
+                  <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">Lv.{rewardProgress.level}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    {levelTitle.title}，已累计 {rewardState.totalStars} 颗成长星，连续学习 {rewardState.streakDays} 天。
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
+              <EinsteinTipCard
+                message={
+                  weakPoint
+                    ? `建议先补强"${weakPoint.knowledgePointName}"，再回到练习页做一轮针对训练。`
+                    : '先完成一轮练习，系统会逐渐生成更完整的学习建议。'
+                }
+                tone="yellow"
+              />
+
               <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-brand-700">当前薄弱点</p>
+                  <div>
+                    <p className="text-sm font-black text-brand-700">AI 学习总结</p>
+                    <p className="mt-1 text-sm text-slate-500">把报告整理成更容易阅读的建议</p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => void handleRefreshWeakPoint()}
-                    disabled={weakPointRefreshing}
-                    className="math-button-secondary rounded-[0.9rem] px-3 py-2 text-xs font-extrabold text-slate-700 disabled:opacity-60"
+                    onClick={() => void handleGenerateAiSummary()}
+                    disabled={aiSummaryLoading}
+                    className="math-button-secondary rounded-[1rem] px-4 py-2 text-sm font-extrabold text-slate-700 disabled:opacity-60"
                   >
-                    {weakPointRefreshing ? '刷新中' : '刷新分析'}
+                    {aiSummaryLoading ? '生成中' : '生成总结'}
                   </button>
                 </div>
-                <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">
-                  {weakPoint?.knowledgePointName ?? '暂无'}
-                </p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {weakPoint
-                    ? `当前正确率 ${weakPoint.correctRate}% ，建议优先安排对应错题和专项练习。`
-                    : '继续完成练习后，这里会生成更准确的分析。'}
-                </p>
-                {weakPointInsight ? (
-                  <div className="mt-3 rounded-[1rem] bg-brand-50/60 px-4 py-3 text-sm leading-7 text-slate-700">
-                    {weakPointInsight}
+
+                {aiSummary ? (
+                  <CompactAiResult
+                    title="本阶段学习总结"
+                    result={aiSummary}
+                    loading={false}
+                    variant="summary"
+                  />
+                ) : (
+                  <div className="mt-4 rounded-[1.4rem] border border-dashed border-brand-200 bg-brand-50/30 px-4 py-6 text-sm text-slate-500">
+                    点击"生成总结"后，这里会出现本阶段学习总结。
                   </div>
-                ) : null}
+                )}
               </div>
+
               <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-                <p className="text-sm font-black text-brand-700">成长激励</p>
-                <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">Lv.{rewardProgress.level}</p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {levelTitle.title}，已累计 {rewardState.totalStars} 颗成长星，连续学习 {rewardState.streakDays} 天。
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4">
-            <EinsteinTipCard
-              message={
-                weakPoint
-                  ? `建议先补强“${weakPoint.knowledgePointName}”，再回到练习页做一轮针对训练。`
-                  : '先完成一轮练习，系统会逐渐生成更完整的学习建议。'
-              }
-              tone="yellow"
-            />
-
-            <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black text-brand-700">AI 学习总结</p>
-                  <p className="mt-1 text-sm text-slate-500">把报告整理成更容易阅读的建议</p>
+                <p className="text-sm font-black text-brand-700">下一步建议</p>
+                <div className="mt-4 grid gap-3">
+                  <a href="/student/practice" className="rounded-[1rem] border border-brand-100 bg-brand-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    去做针对练习
+                  </a>
+                  <a href="/student/wrongbook" className="rounded-[1rem] border border-brand-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                    去复习错题
+                  </a>
+                  <a href="/student/ai-qa" className="rounded-[1rem] border border-brand-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                    去问 AI
+                  </a>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateAiSummary()}
-                  disabled={aiSummaryLoading}
-                  className="math-button-secondary rounded-[1rem] px-4 py-2 text-sm font-extrabold text-slate-700 disabled:opacity-60"
-                >
-                  {aiSummaryLoading ? '生成中' : '生成总结'}
-                </button>
-              </div>
-
-              {aiSummary ? (
-                <CompactAiResult
-                  title="本阶段学习总结"
-                  result={aiSummary}
-                  loading={false}
-                  variant="summary"
-                />
-              ) : (
-                <div className="mt-4 rounded-[1.4rem] border border-dashed border-brand-200 bg-brand-50/30 px-4 py-6 text-sm text-slate-500">
-                  点击“生成总结”后，这里会出现本阶段学习总结。
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-              <p className="text-sm font-black text-brand-700">下一步建议</p>
-              <div className="mt-4 grid gap-3">
-                <a
-                  href="/student/practice"
-                  className="rounded-[1rem] border border-brand-100 bg-brand-50 px-4 py-3 text-sm font-semibold text-slate-700"
-                >
-                  去做针对练习
-                </a>
-                <a
-                  href="/student/wrongbook"
-                  className="rounded-[1rem] border border-brand-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
-                >
-                  去复习错题
-                </a>
-                <a
-                  href="/student/ai-qa"
-                  className="rounded-[1rem] border border-brand-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
-                >
-                  去问 AI
-                </a>
               </div>
             </div>
           </div>

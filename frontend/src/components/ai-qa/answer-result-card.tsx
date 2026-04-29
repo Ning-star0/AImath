@@ -62,7 +62,7 @@ export function AnswerResultCard({
             </div>
             <p className="mt-4 text-base font-medium text-slate-700">还没有开始讲题</p>
             <p className="mt-2 text-sm leading-7 text-slate-500">
-              输入一道数学题后，这里会按“题目理解、分步讲解、最终答案、相似题推荐”的顺序展示内容。
+              输入一道数学题后，这里会按"题目理解、分步讲解、最终答案、相似题推荐"的顺序展示内容。
             </p>
           </div>
         ) : loading && hasPreview && !result ? (

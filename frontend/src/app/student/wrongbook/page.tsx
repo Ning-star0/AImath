@@ -209,146 +209,252 @@ export default function WrongbookPage() {
   return (
     <PageShell title="错题本" description="这里只保留筛选、复习入口和 AI 分析，不再堆很多说明。">
       {helperMessage ? (
-        <div className="mb-4 rounded-[1.2rem] bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 shadow-sm">
+        <div className="mb-3 rounded-xl bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 sm:mb-4 sm:rounded-[1.2rem] sm:px-4 sm:py-3 sm:font-semibold">
           {helperMessage}
         </div>
       ) : null}
 
-      <section className="portal-board px-5 py-5 sm:px-6">
-        <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-          <div className="grid gap-4">
-            <div className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="math-chip math-chip-warm">专项复习</span>
-                <span className="math-chip math-chip-primary">错题本</span>
-              </div>
-              <h2 className="font-math-display text-3xl font-extrabold text-ink">先处理最需要回看的错题</h2>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                答错后系统会自动写入错题本；同一道题重新做对后，会自动从错题本中移除。这里显示的是当前账号还未解决、且未归档的错题。
-              </p>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">待复习</p>
-                  <p className="mt-2 text-3xl font-extrabold text-amber-600">{stats?.unresolvedCount ?? 0}</p>
-                </div>
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">重点复习</p>
-                  <p className="mt-2 text-3xl font-extrabold text-red-600">{urgentCount}</p>
-                </div>
-                <div className="math-stat-card px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500">已归档</p>
-                  <p className="mt-2 text-3xl font-extrabold text-emerald-600">{stats?.archivedCount ?? 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <EinsteinTipCard
-              message="如果你刚做错了题，这里没有显示，先检查当前筛选年级和题型是不是把它过滤掉了。"
-              tone="yellow"
-            />
-
-            <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-2 text-sm font-semibold text-slate-600">
-                  年级
-                  <select
-                    value={grade ?? ''}
-                    onChange={(event) => setGrade(event.target.value ? Number(event.target.value) : undefined)}
-                    className="rounded-[1rem] border border-slate-200 px-3 py-3 outline-none focus:border-brand-300"
-                  >
-                    <option value="">全部年级</option>
-                    {[1, 2, 3, 4, 5, 6].map((item) => (
-                      <option key={item} value={item}>
-                        {item} 年级
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="grid gap-2 text-sm font-semibold text-slate-600">
-                  题型
-                  <select
-                    value={questionType}
-                    onChange={(event) => setQuestionType(event.target.value)}
-                    className="rounded-[1rem] border border-slate-200 px-3 py-3 outline-none focus:border-brand-300"
-                  >
-                    <option value="">全部题型</option>
-                    <option value="SINGLE_CHOICE">单选题</option>
-                    <option value="MULTIPLE_CHOICE">多选题</option>
-                    <option value="FILL_BLANK">填空题</option>
-                    <option value="SHORT_ANSWER">解答题</option>
-                  </select>
-                </label>
-              </div>
-            </div>
+      {/* Mobile layout */}
+      <div className="sm:hidden">
+        {/* Stats row */}
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">待复习</p>
+            <p className="mt-1 text-xl font-extrabold text-amber-600">{stats?.unresolvedCount ?? 0}</p>
           </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">重点</p>
+            <p className="mt-1 text-xl font-extrabold text-red-600">{urgentCount}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[11px] text-slate-400">已归档</p>
+            <p className="mt-1 text-xl font-extrabold text-emerald-600">{stats?.archivedCount ?? 0}</p>
+          </div>
+        </div>
 
-          <div className="grid gap-4">
-            {listData?.list.map((item) => {
-              const status = getStatusCopy(item);
+        {/* Filters */}
+        <div className="mb-3 flex gap-2">
+          <select
+            value={grade ?? ''}
+            onChange={(event) => setGrade(event.target.value ? Number(event.target.value) : undefined)}
+            className="flex-1 rounded-lg border border-slate-100 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none"
+          >
+            <option value="">全部年级</option>
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <option key={item} value={item}>{item} 年级</option>
+            ))}
+          </select>
+          <select
+            value={questionType}
+            onChange={(event) => setQuestionType(event.target.value)}
+            className="flex-1 rounded-lg border border-slate-100 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none"
+          >
+            <option value="">全部题型</option>
+            <option value="SINGLE_CHOICE">单选题</option>
+            <option value="MULTIPLE_CHOICE">多选题</option>
+            <option value="FILL_BLANK">填空题</option>
+            <option value="SHORT_ANSWER">解答题</option>
+          </select>
+        </div>
 
-              return (
-                <div key={item.id} className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${status.tone}`}>{status.label}</span>
-                    <span className="text-xs font-bold text-slate-500">答错 {item.wrongCount} 次</span>
-                  </div>
+        {/* Wrong questions list */}
+        <div className="grid gap-3">
+          {listData?.list.map((item) => {
+            const status = getStatusCopy(item);
 
-                  <p className="mt-3 text-sm font-bold text-slate-500">
-                    {item.knowledgePoint?.name ?? '知识点待补充'}
-                  </p>
-                  <p className="mt-2 text-base font-semibold leading-7 text-ink">{item.questionStem}</p>
-
-                  {item.lastWrongAnswer ? (
-                    <p className="mt-3 text-sm text-slate-500">最近一次错误答案：{item.lastWrongAnswer}</p>
-                  ) : null}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleRetry(item.questionId, item.grade)}
-                      className="math-button-primary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-white"
-                    >
-                      再练一次
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleAiAssist(item, 'WRONG_ANALYSIS', 'AI 错因分析')}
-                      className="math-button-secondary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-slate-700"
-                    >
-                      AI 错因分析
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleAiAssist(item, 'GENERATE_SIMILAR', 'AI 生成相似题')}
-                      className="math-button-secondary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-slate-700"
-                    >
-                      相似题
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleArchive(item.id)}
-                      className="rounded-[0.95rem] border border-slate-200 px-4 py-2 text-xs font-extrabold text-slate-500"
-                    >
-                      归档
-                    </button>
-                  </div>
-
-                  {aiErrors[item.id] ? <p className="mt-3 text-sm text-red-600">{aiErrors[item.id]}</p> : null}
-                  {aiResults[item.id] ? (
-                    <div className="mt-4">
-                      <CompactAiResult
-                        title={aiPanelTitle[item.id] ?? 'AI 辅助'}
-                        result={aiResults[item.id]}
-                        loading={aiLoadingId === item.id}
-                        error={aiErrors[item.id] ?? ''}
-                      />
-                    </div>
-                  ) : null}
+            return (
+              <div key={item.id} className="rounded-xl bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{status.label}</span>
+                  <span className="text-[11px] text-slate-400">答错 {item.wrongCount} 次</span>
                 </div>
-              );
-            })}
+
+                <p className="mt-2 text-xs font-medium text-slate-400">
+                  {item.knowledgePoint?.name ?? '知识点待补充'}
+                </p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-ink">{item.questionStem}</p>
+
+                {item.lastWrongAnswer ? (
+                  <p className="mt-2 text-xs text-slate-400">错误答案：{item.lastWrongAnswer}</p>
+                ) : null}
+
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRetry(item.questionId, item.grade)}
+                    className="rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white"
+                  >
+                    再练
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleAiAssist(item, 'WRONG_ANALYSIS', 'AI 错因分析')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600"
+                  >
+                    错因分析
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleArchive(item.id)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-400"
+                  >
+                    归档
+                  </button>
+                </div>
+
+                {aiErrors[item.id] ? <p className="mt-2 text-xs text-red-500">{aiErrors[item.id]}</p> : null}
+                {aiResults[item.id] ? (
+                  <div className="mt-3">
+                    <CompactAiResult
+                      title={aiPanelTitle[item.id] ?? 'AI 辅助'}
+                      result={aiResults[item.id]}
+                      loading={aiLoadingId === item.id}
+                      error={aiErrors[item.id] ?? ''}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop layout */}
+      <section className="hidden sm:block">
+        <div className="portal-board px-5 py-5 sm:px-6">
+          <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+            <div className="grid gap-4">
+              <div className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="math-chip math-chip-warm">专项复习</span>
+                  <span className="math-chip math-chip-primary">错题本</span>
+                </div>
+                <h2 className="font-math-display text-3xl font-extrabold text-ink">先处理最需要回看的错题</h2>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  答错后系统会自动写入错题本；同一道题重新做对后，会自动从错题本中移除。这里显示的是当前账号还未解决、且未归档的错题。
+                </p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">待复习</p>
+                    <p className="mt-2 text-3xl font-extrabold text-amber-600">{stats?.unresolvedCount ?? 0}</p>
+                  </div>
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">重点复习</p>
+                    <p className="mt-2 text-3xl font-extrabold text-red-600">{urgentCount}</p>
+                  </div>
+                  <div className="math-stat-card px-4 py-4 text-center">
+                    <p className="text-sm text-slate-500">已归档</p>
+                    <p className="mt-2 text-3xl font-extrabold text-emerald-600">{stats?.archivedCount ?? 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <EinsteinTipCard
+                message="如果你刚做错了题，这里没有显示，先检查当前筛选年级和题型是不是把它过滤掉了。"
+                tone="yellow"
+              />
+
+              <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-semibold text-slate-600">
+                    年级
+                    <select
+                      value={grade ?? ''}
+                      onChange={(event) => setGrade(event.target.value ? Number(event.target.value) : undefined)}
+                      className="rounded-[1rem] border border-slate-200 px-3 py-3 outline-none focus:border-brand-300"
+                    >
+                      <option value="">全部年级</option>
+                      {[1, 2, 3, 4, 5, 6].map((item) => (
+                        <option key={item} value={item}>{item} 年级</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2 text-sm font-semibold text-slate-600">
+                    题型
+                    <select
+                      value={questionType}
+                      onChange={(event) => setQuestionType(event.target.value)}
+                      className="rounded-[1rem] border border-slate-200 px-3 py-3 outline-none focus:border-brand-300"
+                    >
+                      <option value="">全部题型</option>
+                      <option value="SINGLE_CHOICE">单选题</option>
+                      <option value="MULTIPLE_CHOICE">多选题</option>
+                      <option value="FILL_BLANK">填空题</option>
+                      <option value="SHORT_ANSWER">解答题</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {listData?.list.map((item) => {
+                const status = getStatusCopy(item);
+
+                return (
+                  <div key={item.id} className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className={`rounded-full border px-3 py-1 text-xs font-black ${status.tone}`}>{status.label}</span>
+                      <span className="text-xs font-bold text-slate-500">答错 {item.wrongCount} 次</span>
+                    </div>
+
+                    <p className="mt-3 text-sm font-bold text-slate-500">
+                      {item.knowledgePoint?.name ?? '知识点待补充'}
+                    </p>
+                    <p className="mt-2 text-base font-semibold leading-7 text-ink">{item.questionStem}</p>
+
+                    {item.lastWrongAnswer ? (
+                      <p className="mt-3 text-sm text-slate-500">最近一次错误答案：{item.lastWrongAnswer}</p>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRetry(item.questionId, item.grade)}
+                        className="math-button-primary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-white"
+                      >
+                        再练一次
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleAiAssist(item, 'WRONG_ANALYSIS', 'AI 错因分析')}
+                        className="math-button-secondary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-slate-700"
+                      >
+                        AI 错因分析
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleAiAssist(item, 'GENERATE_SIMILAR', 'AI 生成相似题')}
+                        className="math-button-secondary rounded-[0.95rem] px-4 py-2 text-xs font-extrabold text-slate-700"
+                      >
+                        相似题
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleArchive(item.id)}
+                        className="rounded-[0.95rem] border border-slate-200 px-4 py-2 text-xs font-extrabold text-slate-500"
+                      >
+                        归档
+                      </button>
+                    </div>
+
+                    {aiErrors[item.id] ? <p className="mt-3 text-sm text-red-600">{aiErrors[item.id]}</p> : null}
+                    {aiResults[item.id] ? (
+                      <div className="mt-4">
+                        <CompactAiResult
+                          title={aiPanelTitle[item.id] ?? 'AI 辅助'}
+                          result={aiResults[item.id]}
+                          loading={aiLoadingId === item.id}
+                          error={aiErrors[item.id] ?? ''}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
