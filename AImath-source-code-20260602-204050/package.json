@@ -1,0 +1,18 @@
+{
+  "name": "ai-math-tutor-system",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend start:dev",
+    "demo:prepare": "powershell -ExecutionPolicy Bypass -File ./scripts/prepare-demo.ps1",
+    "demo:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-demo.ps1",
+    "demo:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-demo.ps1",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format"
+  }
+}
+

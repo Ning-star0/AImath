@@ -1,0 +1,16 @@
+node_modules
+.pnpm-store
+.next
+dist
+coverage
+.turbo
+.DS_Store
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+frontend/.env
+backend/generated
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
