@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CompactAiResult } from '@/components/ai-qa/compact-ai-result';
 import { PageShell } from '@/components/base/page-shell';
 import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
@@ -78,7 +78,7 @@ export default function WrongbookPage() {
     }
   }, [currentUser, grade]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setError('');
 
     try {
@@ -95,7 +95,7 @@ export default function WrongbookPage() {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '错题数据加载失败，请稍后重试。');
     }
-  };
+  }, [grade, questionType]);
 
   useEffect(() => {
     if (!accessToken && !currentUser) {
@@ -103,7 +103,7 @@ export default function WrongbookPage() {
     }
 
     void loadData();
-  }, [accessToken, currentUser, grade, questionType]);
+  }, [accessToken, currentUser, loadData]);
 
   const urgentCount = useMemo(
     () => listData?.list.filter((item) => !item.resolved && (item.wrongCount ?? 0) >= 3).length ?? 0,

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageShell } from '@/components/base/page-shell';
 import {
   AuthRequiredState,
@@ -120,7 +120,7 @@ export default function AdminQuestionsPage() {
     hydrateSession();
   }, [hydrateSession]);
 
-  const loadQuestions = async (nextPage = page, nextGrade = gradeFilter, nextType = questionTypeFilter) => {
+  const loadQuestions = useCallback(async (nextPage = page, nextGrade = gradeFilter, nextType = questionTypeFilter) => {
     setLoading(true);
 
     try {
@@ -137,11 +137,11 @@ export default function AdminQuestionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gradeFilter, page, pageSize, questionTypeFilter]);
 
   useEffect(() => {
-    void loadQuestions(page, gradeFilter, questionTypeFilter);
-  }, [page, gradeFilter, questionTypeFilter]);
+    void loadQuestions();
+  }, [loadQuestions]);
 
   const allSelectableIds = useMemo(() => data?.list.map((item) => item.id) ?? [], [data]);
 
@@ -181,6 +181,19 @@ export default function AdminQuestionsPage() {
       return;
     }
 
+    if (parsedPayload.questions.length > 500) {
+      setImportError('单次最多导入 500 道题目，请拆分批次后再导入。');
+      return;
+    }
+
+    if (
+      Array.isArray(parsedPayload.knowledgePoints) &&
+      parsedPayload.knowledgePoints.length > 200
+    ) {
+      setImportError('单次最多导入 200 个知识点，请拆分批次后再导入。');
+      return;
+    }
+
     setImporting(true);
     try {
       const response = await adminService.importQuestions(parsedPayload);
@@ -196,6 +209,13 @@ export default function AdminQuestionsPage() {
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) {
       setDeleteError('请先勾选要删除的题目。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `确认删除已选的 ${selectedIds.length} 道题目吗？相关练习明细和错题记录也会同步清理。`,
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -562,16 +582,18 @@ export default function AdminQuestionsPage() {
                 }`}
               >
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex gap-4">
+                  <div className="flex min-w-0 gap-4">
                     <input
                       type="checkbox"
                       checked={selected}
                       onChange={() => toggleQuestionSelection(item.id)}
                       className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
                     />
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h4 className="font-math-display text-2xl font-extrabold text-ink">{item.title}</h4>
+                        <h4 className="min-w-0 break-words font-math-display text-2xl font-extrabold text-ink">
+                          {item.title}
+                        </h4>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
                           {toQuestionTypeLabel(item.questionType)}
                         </span>
@@ -582,7 +604,7 @@ export default function AdminQuestionsPage() {
                       <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
                         <span className="rounded-full bg-slate-100 px-3 py-2">{item.grade} 年级</span>
                         <span className="rounded-full bg-slate-100 px-3 py-2">难度 {item.difficulty}</span>
-                        <span className="rounded-full bg-slate-100 px-3 py-2">
+                        <span className="max-w-full break-words rounded-full bg-slate-100 px-3 py-2">
                           来源：{item.source ?? '未标记'}
                         </span>
                         <span className="rounded-full bg-slate-100 px-3 py-2">
@@ -592,7 +614,7 @@ export default function AdminQuestionsPage() {
                     </div>
                   </div>
 
-                  <div className="min-w-[15rem] rounded-[1.4rem] bg-white/90 px-4 py-4 text-sm text-slate-500 ring-1 ring-slate-100">
+                  <div className="min-w-0 rounded-[1.4rem] bg-white/90 px-4 py-4 text-sm text-slate-500 ring-1 ring-slate-100 xl:min-w-[15rem]">
                     <p>练习引用：{item.exerciseReferenceCount} 条</p>
                     <p className="mt-2">错题引用：{item.wrongbookReferenceCount} 条</p>
                     <p className="mt-2 text-xs leading-6">

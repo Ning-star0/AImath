@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 type RefreshStudentMemoryInput = {
   studentId: string;
   subject?: string | null;
-  eventType: 'EXERCISE_SUBMIT' | 'AI_QA';
+  eventType: 'EXERCISE_SUBMIT' | 'WRONGBOOK_UPDATE' | 'AI_QA';
 };
 
 @Injectable()
@@ -14,15 +14,6 @@ export class StudentMemoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async refreshStudentMemory(input: RefreshStudentMemoryInput) {
-    const memoryPrisma = this.prisma as PrismaService & {
-      studentMemorySnapshot: {
-        upsert: (args: unknown) => Promise<unknown>;
-      };
-      studentMemoryHistory: {
-        create: (args: unknown) => Promise<unknown>;
-      };
-    };
-
     const student = await this.prisma.student.findUnique({
       where: { id: input.studentId },
       include: {
@@ -197,7 +188,7 @@ export class StudentMemoryService {
     };
 
     await this.prisma.$transaction([
-      memoryPrisma.studentMemorySnapshot.upsert({
+      this.prisma.studentMemorySnapshot.upsert({
         where: { studentId: input.studentId },
         update: snapshotPayload,
         create: {
@@ -205,7 +196,7 @@ export class StudentMemoryService {
           ...snapshotPayload,
         },
       }),
-      memoryPrisma.studentMemoryHistory.create({
+      this.prisma.studentMemoryHistory.create({
         data: {
           studentId: input.studentId,
           eventType: input.eventType,

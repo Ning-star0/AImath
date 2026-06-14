@@ -34,7 +34,6 @@ export function normalizeUserMessage(message: string) {
 
   if (
     includesAny(normalized, [
-      'unauthorized',
       '\u5f53\u524d\u8d26\u53f7\u4e0e\u6240\u9009\u8eab\u4efd\u5165\u53e3\u4e0d\u5339\u914d',
       '褰撳墠璐﹀彿涓庢墍閫夎韩浠藉叆鍙ｄ笉鍖归厤',
     ])
@@ -78,6 +77,10 @@ export function normalizeUserMessage(message: string) {
     return MSG.notActivated;
   }
 
+  if (includesAny(normalized, ['unauthorized', 'jwt expired', 'invalid token'])) {
+    return MSG.sessionExpired;
+  }
+
   return message;
 }
 
@@ -86,13 +89,10 @@ export function getPlatformErrorKind(message: string): PlatformErrorKind {
 
   if (
     includesAny(normalized, [
-      'unauthorized',
       '\u8eab\u4efd\u5165\u53e3\u4e0d\u5339\u914d',
-      '\u767b\u5f55\u72b6\u6001\u5df2\u5931\u6548',
-      MSG.sessionExpired.toLowerCase(),
     ])
   ) {
-    return 'session_expired';
+    return 'permission_denied';
   }
 
   if (includesAny(normalized, ['forbidden', '\u6743\u9650'])) {
@@ -105,6 +105,18 @@ export function getPlatformErrorKind(message: string): PlatformErrorKind {
 
   if (includesAny(normalized, ['maint', '\u7ef4\u62a4'])) {
     return 'maintenance';
+  }
+
+  if (
+    includesAny(normalized, [
+      'unauthorized',
+      'jwt expired',
+      'invalid token',
+      '\u767b\u5f55\u72b6\u6001\u5df2\u5931\u6548',
+      MSG.sessionExpired.toLowerCase(),
+    ])
+  ) {
+    return 'session_expired';
   }
 
   return 'page_load_error';

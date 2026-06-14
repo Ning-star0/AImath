@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuthAdminController } from './auth-admin.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { resolveJwtSecret } from './jwt-secret';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -14,10 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>(
-          'jwtSecret',
-          'replace-with-strong-secret',
-        ),
+        secret: resolveJwtSecret(configService),
         signOptions: {
           expiresIn: configService.get<string>('jwtExpiresIn', '7d'),
         },
@@ -29,4 +27,3 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   exports: [AuthService],
 })
 export class AuthModule {}
-

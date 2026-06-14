@@ -28,6 +28,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function formatRadarLabel(label: string) {
+  return label.length > 8 ? `${label.slice(0, 8)}...` : label;
+}
+
 function FamilyRadarChart({
   items,
 }: {
@@ -116,7 +120,7 @@ function FamilyRadarChart({
             textAnchor={item.labelX < center - 8 ? 'end' : item.labelX > center + 8 ? 'start' : 'middle'}
             className="fill-slate-600 text-[11px] font-semibold"
           >
-            {item.knowledgePointName}
+            {formatRadarLabel(item.knowledgePointName)}
           </text>
         ))}
       </svg>
@@ -125,14 +129,14 @@ function FamilyRadarChart({
         {chartItems.map((item, index) => (
           <div key={item.knowledgePointId} className="rounded-[1.2rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <span
-                  className="h-3 w-3 rounded-full"
+                  className="h-3 w-3 shrink-0 rounded-full"
                   style={{ backgroundColor: radarPalette[index % radarPalette.length] }}
                 />
-                <p className="font-semibold text-ink">{item.knowledgePointName}</p>
+                <p className="break-words font-semibold text-ink">{item.knowledgePointName}</p>
               </div>
-              <span className="text-sm font-black text-brand-700">{item.mastery}%</span>
+              <span className="shrink-0 text-sm font-black text-brand-700">{item.mastery}%</span>
             </div>
             <div className="mt-3 h-2.5 rounded-full bg-slate-100">
               <div
@@ -140,7 +144,7 @@ function FamilyRadarChart({
                 style={{ width: `${clamp(item.mastery, 6, 100)}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 break-words text-xs text-slate-500">
               {item.insight}
             </p>
           </div>
@@ -191,6 +195,9 @@ export default function FamilyPage() {
           setSelectedChildId(data.bindingOptions[0].student.id);
         }
       } catch (loadError) {
+        if (selectedChildId) {
+          setSelectedChildId('');
+        }
         setError(loadError instanceof Error ? loadError.message : '家长端数据加载失败。');
       } finally {
         setLoading(false);
@@ -426,8 +433,8 @@ export default function FamilyPage() {
                   return (
                     <div key={item.label} className="rounded-[1.2rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-ink">{item.label}</p>
-                        <span className="text-sm font-black text-orange-600">{percent}%</span>
+                        <p className="min-w-0 break-words font-semibold text-ink">{item.label}</p>
+                        <span className="shrink-0 text-sm font-black text-orange-600">{percent}%</span>
                       </div>
                       <div className="mt-3 h-2.5 rounded-full bg-slate-100">
                         <div
@@ -450,8 +457,8 @@ export default function FamilyPage() {
                 {overview.weakKnowledgePoints.map((item) => (
                   <div key={item.knowledgePointId} className="rounded-[1.3rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-ink">{item.knowledgePointName}</p>
-                      <span className="text-sm font-black text-orange-600">{item.correctRate}%</span>
+                      <p className="min-w-0 break-words font-semibold text-ink">{item.knowledgePointName}</p>
+                      <span className="shrink-0 text-sm font-black text-orange-600">{item.correctRate}%</span>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">
                       共练习 {item.total} 题，答错 {item.wrongCount} 题。
@@ -466,7 +473,7 @@ export default function FamilyPage() {
               <div className="mt-5 grid gap-3">
                 {overview.wrongQuestions.slice(0, 5).map((item) => (
                   <div key={item.id} className="rounded-[1.3rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
-                    <p className="font-semibold text-ink">{item.questionTitle}</p>
+                    <p className="break-words font-semibold text-ink">{item.questionTitle}</p>
                     <p className="mt-2 text-sm text-slate-600">
                       错题次数 {item.wrongCount}，当前状态：{item.unresolved ? '待复习' : '已完成复习'}
                     </p>

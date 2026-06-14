@@ -177,24 +177,11 @@ export default function LoginPage() {
     }
   }, [currentUser?.role, router]);
 
-  const watchedContact = registerForm.watch('contact');
   const watchedGrade = registerForm.watch('grade');
   const classOptions = useMemo(
     () => getClassOptionsByGrade(watchedGrade ? Number(watchedGrade) : null),
     [watchedGrade],
   );
-  const contactLabel = useMemo(() => {
-    if (!watchedContact) {
-      return '支持手机号或邮箱';
-    }
-    if (isPhone(watchedContact)) {
-      return '当前将作为手机号保存';
-    }
-    if (isEmail(watchedContact)) {
-      return '当前将作为邮箱保存';
-    }
-    return '请输入有效的手机号或邮箱';
-  }, [watchedContact]);
 
   useEffect(() => {
     if (registerRole !== 'STUDENT') {

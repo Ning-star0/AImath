@@ -193,6 +193,12 @@ a {
   filter: brightness(1.03);
 }
 
+.math-button-primary:active,
+.math-button-secondary:active,
+.math-lift:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .math-button-primary:focus-visible,
 .math-button-secondary:focus-visible,
 .math-lift:focus-visible,

@@ -147,6 +147,8 @@ export function PageShell({
             <div ref={menuRef} className="relative">
               <button
                 type="button"
+                aria-label="打开账号菜单"
+                aria-expanded={menuOpen}
                 onClick={() => setMenuOpen((open) => !open)}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-black text-brand-700"
               >
@@ -207,13 +209,14 @@ export function PageShell({
                     <div className="relative shrink-0">
                       <button
                         type="button"
+                        aria-expanded={menuOpen}
                         onClick={() => setMenuOpen((open) => !open)}
                         className="math-button-secondary flex items-center gap-3 px-3 py-2 text-sm font-bold text-brand-700"
                       >
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-black text-brand-700">
                           {accountLabel.slice(0, 1)}
                         </span>
-                        <span>{accountLabel}</span>
+                        <span className="max-w-[8rem] truncate">{accountLabel}</span>
                       </button>
 
                       {menuOpen ? (
@@ -255,10 +258,10 @@ export function PageShell({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`rounded-[0.95rem] border px-4 py-2.5 text-center text-sm font-extrabold ${
+                      className={`rounded-[0.95rem] border px-4 py-2.5 text-center text-sm font-extrabold transition duration-150 hover:-translate-y-0.5 ${
                         isNavActive(pathname, item.href)
                           ? 'border-[#1A8E38] bg-[#1A8E38] text-white shadow-[0_12px_24px_rgba(26,142,56,0.2)]'
-                          : 'border-[#F7D672] bg-white text-slate-700'
+                          : 'border-[#F7D672] bg-white text-slate-700 hover:border-brand-200 hover:bg-brand-50/50'
                       }`}
                     >
                       {item.label}

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { StudentIdParamDto } from '../../common/dto/id-param.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -54,9 +55,9 @@ export class TeacherController {
       student?: { id: string; grade: number } | null;
       teacher?: { id: string; extra?: unknown } | null;
     },
-    @Param('studentId') studentId: string,
+    @Param() params: StudentIdParamDto,
   ) {
-    return this.teacherService.getStudentReport(user, studentId);
+    return this.teacherService.getStudentReport(user, params.studentId);
   }
 
   @Post('class-access-request')

@@ -265,14 +265,6 @@ ${strongestPoints || '暂无'}`,
     }
   };
 
-  if (!accessToken && !currentUser) {
-    return (
-      <PageShell title="学习报告" description="查看最近一段时间的学习结果和建议。">
-        <AuthRequiredState />
-      </PageShell>
-    );
-  }
-
   if (error && !report) {
     const errorKind = getPlatformErrorKind(error);
 
@@ -336,14 +328,18 @@ ${strongestPoints || '暂无'}`,
               {weakPointRefreshing ? '刷新中' : '刷新'}
             </button>
           </div>
-          <p className="mt-2 text-base font-extrabold text-ink">{weakPoint?.knowledgePointName ?? '暂无'}</p>
+          <p className="mt-2 break-words text-base font-extrabold text-ink">
+            {weakPoint?.knowledgePointName ?? '暂无'}
+          </p>
           <p className="mt-1 text-xs text-slate-500">
             {weakPoint
               ? `正确率 ${weakPoint.correctRate}%，建议优先复习`
               : '继续练习后会生成分析'}
           </p>
           {weakPointInsight ? (
-            <p className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-slate-600">{weakPointInsight}</p>
+            <p className="mt-2 break-words rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-slate-600">
+              {weakPointInsight}
+            </p>
           ) : null}
         </div>
 
@@ -438,7 +434,7 @@ ${strongestPoints || '暂无'}`,
                       {weakPointRefreshing ? '刷新中' : '刷新分析'}
                     </button>
                   </div>
-                  <p className="mt-3 font-math-display text-2xl font-extrabold text-ink">
+                  <p className="mt-3 break-words font-math-display text-2xl font-extrabold text-ink">
                     {weakPoint?.knowledgePointName ?? '暂无'}
                   </p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -447,7 +443,7 @@ ${strongestPoints || '暂无'}`,
                       : '继续完成练习后，这里会生成更准确的分析。'}
                   </p>
                   {weakPointInsight ? (
-                    <div className="mt-3 rounded-[1rem] bg-brand-50/60 px-4 py-3 text-sm leading-7 text-slate-700">
+                    <div className="mt-3 break-words rounded-[1rem] bg-brand-50/60 px-4 py-3 text-sm leading-7 text-slate-700">
                       {weakPointInsight}
                     </div>
                   ) : null}

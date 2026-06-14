@@ -6,6 +6,7 @@ import {
   normalizeManagedClasses,
   readTeacherExtra,
 } from '../../shared/utils/class-utils';
+import { AssignStudentClassDto } from './dto/assign-student-class.dto';
 import { QueryAdminQuestionsDto } from './dto/query-admin-questions.dto';
 import { ReviewTeacherClassAccessDto } from './dto/review-teacher-class-access.dto';
 import { ReviewTeacherDto } from './dto/review-teacher.dto';
@@ -269,8 +270,16 @@ export class AdminService {
       }
     }
 
-    const memorySummary = user.student
-      ? await Promise.all([
+    const cleanupCounts = {
+      memorySnapshotCount: 0,
+      memoryHistoryCount: 0,
+      childBindingCount: 0,
+      parentBindingCount: 0,
+    };
+
+    if (user.student) {
+      const [memorySnapshotCount, memoryHistoryCount, childBindingCount] =
+        await Promise.all([
           this.prisma.studentMemorySnapshot.count({
             where: {
               studentId: user.student.id,
@@ -286,8 +295,20 @@ export class AdminService {
               studentId: user.student.id,
             },
           }),
-        ])
-      : [0, 0, 0];
+        ]);
+
+      cleanupCounts.memorySnapshotCount = memorySnapshotCount;
+      cleanupCounts.memoryHistoryCount = memoryHistoryCount;
+      cleanupCounts.childBindingCount = childBindingCount;
+    }
+
+    if (user.role === Role.PARENT) {
+      cleanupCounts.parentBindingCount = await this.prisma.parentBinding.count({
+        where: {
+          parentUserId: user.id,
+        },
+      });
+    }
 
     await this.prisma.user.delete({
       where: { id: targetUserId },
@@ -305,9 +326,10 @@ export class AdminService {
         wrongQuestionCount: user._count.wrongQuestions,
         aiQaRecordCount: user._count.aiQaRecords,
         learningReportCount: user._count.learningReports,
-        memorySnapshotCount: memorySummary[0],
-        memoryHistoryCount: memorySummary[1],
-        parentBindingCount: memorySummary[2],
+        memorySnapshotCount: cleanupCounts.memorySnapshotCount,
+        memoryHistoryCount: cleanupCounts.memoryHistoryCount,
+        childBindingCount: cleanupCounts.childBindingCount,
+        parentBindingCount: cleanupCounts.parentBindingCount,
       },
     };
   }
@@ -497,7 +519,7 @@ export class AdminService {
     };
   }
 
-  async assignStudentToClass(studentId: string, payload: { grade: number; className: string; schoolName?: string | null }) {
+  async assignStudentToClass(studentId: string, payload: AssignStudentClassDto) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
     });

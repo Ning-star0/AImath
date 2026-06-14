@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, QuestionType, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ArchiveWrongQuestionDto } from './dto/archive-wrong-question.dto';
 import { QueryWrongbookDto } from './dto/query-wrongbook.dto';
 import { RetryWrongQuestionDto } from './dto/retry-wrong-question.dto';
 import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
+import { judgeAnswer } from '../../shared/utils/answer-utils';
 
 interface AuthUser {
   id: string;
@@ -14,6 +15,8 @@ interface AuthUser {
 
 @Injectable()
 export class WrongbookService {
+  private readonly logger = new Logger(WrongbookService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly studentMemoryService: StudentMemoryService,
@@ -144,9 +147,12 @@ export class WrongbookService {
       throw new NotFoundException('错题记录不存在。');
     }
 
-    const normalizedStudentAnswer = payload.answer.replace(/\s+/g, '').trim().toUpperCase();
-    const normalizedCorrectAnswer = wrongQuestion.question.answer.replace(/\s+/g, '').trim().toUpperCase();
-    const resolved = normalizedStudentAnswer === normalizedCorrectAnswer;
+    const judgement = judgeAnswer({
+      questionType: wrongQuestion.question.questionType,
+      correctAnswer: wrongQuestion.question.answer,
+      studentAnswer: payload.answer,
+    });
+    const resolved = judgement.isCorrect;
 
     if (resolved) {
       await this.prisma.wrongQuestion.delete({
@@ -154,11 +160,7 @@ export class WrongbookService {
       });
 
       if (user.student?.id) {
-        await this.studentMemoryService.refreshStudentMemory({
-          studentId: user.student.id,
-          subject: wrongQuestion.question.subject,
-          eventType: 'EXERCISE_SUBMIT',
-        });
+        await this.refreshStudentMemorySafely(user.student.id, wrongQuestion.question.subject);
       }
 
       return {
@@ -166,7 +168,7 @@ export class WrongbookService {
         resolved: true,
         removedFromWrongbook: true,
         studentAnswer: payload.answer,
-        correctAnswer: wrongQuestion.question.answer,
+        correctAnswer: judgement.normalizedCorrectAnswer,
         nextAction: '这道题已经做对，已从错题本中移除。',
       };
     }
@@ -176,16 +178,15 @@ export class WrongbookService {
       data: {
         resolved: false,
         lastWrongAnswer: payload.answer,
+        wrongCount: {
+          increment: 1,
+        },
         reviewStatus: 'RETRY_REQUIRED',
       },
     });
 
     if (user.student?.id) {
-      await this.studentMemoryService.refreshStudentMemory({
-        studentId: user.student.id,
-        subject: wrongQuestion.question.subject,
-        eventType: 'EXERCISE_SUBMIT',
-      });
+      await this.refreshStudentMemorySafely(user.student.id, wrongQuestion.question.subject);
     }
 
     return {
@@ -193,7 +194,7 @@ export class WrongbookService {
       resolved: false,
       removedFromWrongbook: false,
       studentAnswer: payload.answer,
-      correctAnswer: wrongQuestion.question.answer,
+      correctAnswer: judgement.normalizedCorrectAnswer,
       nextAction: '建议继续重练，并结合解析再次理解题意。',
     };
   }
@@ -203,6 +204,13 @@ export class WrongbookService {
       where: {
         id: wrongQuestionId,
         userId: user.id,
+      },
+      include: {
+        question: {
+          select: {
+            subject: true,
+          },
+        },
       },
     });
 
@@ -217,6 +225,10 @@ export class WrongbookService {
         reviewStatus: payload.reason ? `ARCHIVED:${payload.reason}` : 'ARCHIVED',
       },
     });
+
+    if (user.student?.id) {
+      await this.refreshStudentMemorySafely(user.student.id, wrongQuestion.question.subject);
+    }
 
     return {
       id: updatedWrongQuestion.id,
@@ -237,5 +249,19 @@ export class WrongbookService {
       questionType,
       count,
     }));
+  }
+
+  private async refreshStudentMemorySafely(studentId: string, subject: string | null) {
+    try {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId,
+        subject,
+        eventType: 'WRONGBOOK_UPDATE',
+      });
+    } catch (error) {
+      this.logger.warn(
+        `错题状态已更新，但学生记忆刷新失败：${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
   }
 }

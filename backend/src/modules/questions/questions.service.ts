@@ -129,6 +129,12 @@ export class QuestionsService {
           },
         });
 
+        const existingQuestionById = item.id
+          ? await tx.question.findUnique({
+              where: { id: item.id },
+              select: { id: true },
+            })
+          : null;
         const questionId = item.id ?? deduplicatedQuestion?.id ?? undefined;
         const optionsValue = item.options
           ? (item.options as unknown as Prisma.InputJsonValue)
@@ -198,7 +204,7 @@ export class QuestionsService {
         importedQuestionIds.push(question.id);
         if (shouldTreatAsDeduplicated) {
           deduplicatedQuestions += 1;
-        } else if (item.id) {
+        } else if (existingQuestionById) {
           updatedQuestions += 1;
         } else {
           importedQuestions += 1;
@@ -210,7 +216,7 @@ export class QuestionsService {
           },
         });
 
-        for (const code of item.knowledgePointCodes ?? []) {
+        for (const code of new Set(item.knowledgePointCodes ?? [])) {
           let knowledgePointId = knowledgePointCodeMap.get(code);
 
           if (!knowledgePointId) {
@@ -250,10 +256,14 @@ export class QuestionsService {
   }
 
   async deleteBatch(payload: DeleteQuestionsDto) {
+    const requestedIds = [
+      ...new Set(payload.ids.map((id) => id.trim()).filter(Boolean)),
+    ];
+
     const questions = await this.prisma.question.findMany({
       where: {
         id: {
-          in: payload.ids,
+          in: requestedIds,
         },
       },
       include: {
@@ -377,7 +387,7 @@ export class QuestionsService {
     }
 
     return {
-      requestedCount: payload.ids.length,
+      requestedCount: requestedIds.length,
       deletedCount: questionIds.length,
       blockedCount: 0,
       deletedIds: questionIds,

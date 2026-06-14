@@ -475,6 +475,15 @@ export class TeacherService {
         expandClassNameVariants(item.grade, item.className).map((variant) => ({
           grade: item.grade,
           className: variant,
+          ...(item.schoolName
+            ? {
+                OR: [
+                  { schoolName: item.schoolName.trim() },
+                  { schoolName: null },
+                  { schoolName: '' },
+                ],
+              }
+            : {}),
         })),
       ),
     };
@@ -575,4 +584,3 @@ export class TeacherService {
     });
   }
 }
-

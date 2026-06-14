@@ -1,14 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   ExerciseStatus,
   Prisma,
   Question,
-  QuestionType,
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SubmitExerciseDto } from './dto/submit-exercise.dto';
 import { StudentMemoryService } from '../../shared/student-memory/student-memory.service';
+import { judgeAnswer } from '../../shared/utils/answer-utils';
 
 interface AuthUser {
   id: string;
@@ -18,6 +18,8 @@ interface AuthUser {
 
 @Injectable()
 export class ExercisesService {
+  private readonly logger = new Logger(ExercisesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly studentMemoryService: StudentMemoryService,
@@ -25,6 +27,11 @@ export class ExercisesService {
 
   async submit(user: AuthUser, payload: SubmitExerciseDto) {
     const questionIds = payload.answers.map((item) => item.questionId);
+    const uniqueQuestionIds = new Set(questionIds);
+    if (uniqueQuestionIds.size !== questionIds.length) {
+      throw new BadRequestException('一次提交中不能重复提交同一道题。');
+    }
+
     const dbQuestions = await this.prisma.question.findMany({
       where: {
         id: {
@@ -74,7 +81,11 @@ export class ExercisesService {
             }>;
           });
 
-      const judgement = this.judgeAnswer(question, item.answer);
+      const judgement = judgeAnswer({
+        questionType: question.questionType,
+        correctAnswer: question.answer,
+        studentAnswer: item.answer,
+      });
 
       return {
         question,
@@ -116,7 +127,7 @@ export class ExercisesService {
             create: judgedItems.map((item) => ({
               questionId: item.question.id,
               studentAnswer: item.studentAnswer,
-              correctAnswer: item.correctAnswer,
+              correctAnswer: item.normalizedCorrectAnswer,
               isCorrect: item.isCorrect,
               score: item.isCorrect ? 100 : 0,
               feedback: item.feedback,
@@ -211,11 +222,7 @@ export class ExercisesService {
     }
 
     if (user.student?.id) {
-      await this.studentMemoryService.refreshStudentMemory({
-        studentId: user.student.id,
-        subject,
-        eventType: 'EXERCISE_SUBMIT',
-      });
+      await this.refreshStudentMemorySafely(user.student.id, subject);
     }
 
     return {
@@ -293,49 +300,17 @@ export class ExercisesService {
     };
   }
 
-  private judgeAnswer(
-    question:
-      | Prisma.QuestionGetPayload<{
-          include: {
-            questionKnowledgeMaps: {
-              include: {
-                knowledgePoint: true;
-              };
-            };
-          };
-        }>
-      | (Question & { questionKnowledgeMaps?: unknown[] }),
-    rawAnswer: string,
-  ) {
-    const normalizedStudentAnswer = this.normalizeAnswer(rawAnswer);
-    const normalizedCorrectAnswer = this.normalizeAnswer(question.answer);
-
-    if (question.questionType === QuestionType.MULTIPLE_CHOICE) {
-      const studentSet = normalizedStudentAnswer.split(',').filter(Boolean).sort();
-      const correctSet = normalizedCorrectAnswer.split(',').filter(Boolean).sort();
-      const isCorrect = JSON.stringify(studentSet) === JSON.stringify(correctSet);
-
-      return {
-        isCorrect,
-        correctAnswer: normalizedCorrectAnswer,
-        feedback: isCorrect
-          ? '回答正确，继续保持。'
-          : `正确答案是 ${normalizedCorrectAnswer}，请注意多选题要选全。`,
-      };
+  private async refreshStudentMemorySafely(studentId: string, subject: string) {
+    try {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId,
+        subject,
+        eventType: 'EXERCISE_SUBMIT',
+      });
+    } catch (error) {
+      this.logger.warn(
+        `练习已提交，但学生记忆刷新失败：${error instanceof Error ? error.message : 'unknown error'}`,
+      );
     }
-
-    const isCorrect = normalizedStudentAnswer === normalizedCorrectAnswer;
-
-    return {
-      isCorrect,
-      correctAnswer: normalizedCorrectAnswer,
-      feedback: isCorrect
-        ? '回答正确，做得很好。'
-        : `回答不正确。正确答案是 ${normalizedCorrectAnswer}。`,
-    };
-  }
-
-  private normalizeAnswer(answer: string) {
-    return answer.replace(/\s+/g, '').trim().toUpperCase();
   }
 }

@@ -45,6 +45,7 @@ export function normalizeManagedClasses(value: unknown): ManagedClassAssignment[
   }
 
   const result: ManagedClassAssignment[] = [];
+  const seen = new Set<string>();
 
   for (const item of value) {
     if (!item || typeof item !== 'object') {
@@ -58,9 +59,15 @@ export function normalizeManagedClasses(value: unknown): ManagedClassAssignment[
     const schoolName =
       typeof record.schoolName === 'string' ? record.schoolName.trim() : null;
 
-    if (!grade || !className) {
+    if (!Number.isInteger(grade) || grade < 1 || grade > 6 || !className) {
       continue;
     }
+
+    const dedupeKey = `${grade}:${className}:${schoolName ?? ''}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
 
     result.push({
       grade,

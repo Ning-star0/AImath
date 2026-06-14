@@ -41,6 +41,7 @@ interface AskAiStreamHandlers {
 interface StreamEventPayload {
   message?: string;
   content?: string;
+  success?: boolean;
 }
 
 const AI_STREAM_TIMEOUT_MS = 180000;
@@ -61,9 +62,16 @@ function parseSseEvent(block: string) {
   }
 
   const rawData = dataLines.join('\n');
+  let data: unknown = null;
+  try {
+    data = rawData ? JSON.parse(rawData) : null;
+  } catch {
+    throw new Error('AI 流式响应解析失败，请稍后重试。');
+  }
+
   return {
     event,
-    data: rawData ? JSON.parse(rawData) : null,
+    data,
   };
 }
 
@@ -121,10 +129,12 @@ export const aiService = {
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
       let finalResult: AiQaResult | null = null;
+      let streamError = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
+          buffer += decoder.decode();
           break;
         }
 
@@ -148,7 +158,31 @@ export const aiService = {
             finalResult = parsed.data as AiQaResult;
             handlers.onResult?.(finalResult);
           }
+          if (parsed.event === 'error') {
+            streamError = (parsed.data as StreamEventPayload)?.message ?? 'AI 讲题暂时失败，请稍后重试。';
+          }
+          if (parsed.event === 'done' && (parsed.data as StreamEventPayload)?.success === false) {
+            streamError ||= 'AI 讲题暂时失败，请稍后重试。';
+          }
         }
+      }
+
+      if (buffer.trim()) {
+        const parsed = parseSseEvent(buffer);
+        if (parsed.event === 'result') {
+          finalResult = parsed.data as AiQaResult;
+          handlers.onResult?.(finalResult);
+        }
+        if (parsed.event === 'error') {
+          streamError = (parsed.data as StreamEventPayload)?.message ?? 'AI 讲题暂时失败，请稍后重试。';
+        }
+        if (parsed.event === 'done' && (parsed.data as StreamEventPayload)?.success === false) {
+          streamError ||= 'AI 讲题暂时失败，请稍后重试。';
+        }
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
       }
 
       if (!finalResult) {
@@ -166,4 +200,3 @@ export const aiService = {
     }
   },
 };
-

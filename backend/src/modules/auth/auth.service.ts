@@ -4,7 +4,7 @@
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ParentBinding, Role, Teacher } from '@prisma/client';
+import { ParentBinding, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -72,6 +72,10 @@ export class AuthService {
 
   async register(payload: RegisterDto) {
     const role = payload.role ?? Role.STUDENT;
+    const username = payload.username.trim();
+    const email = payload.email?.trim() || undefined;
+    const phone = payload.phone?.trim() || undefined;
+    const displayName = payload.displayName.trim();
 
     if (role === Role.ADMIN) {
       throw new BadRequestException('管理员账号只能由后台创建。');
@@ -80,9 +84,9 @@ export class AuthService {
     const duplicateUser = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { username: payload.username },
-          ...(payload.email ? [{ email: payload.email }] : []),
-          ...(payload.phone ? [{ phone: payload.phone }] : []),
+          { username },
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phone }] : []),
         ],
       },
     });
@@ -129,12 +133,12 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(payload.password, 10);
     const createdUser = await this.prisma.user.create({
       data: {
-        username: payload.username,
-        email: payload.email,
-        phone: payload.phone,
+        username,
+        email,
+        phone,
         passwordHash,
         role,
-        displayName: payload.displayName,
+        displayName,
         isActive: role !== Role.TEACHER,
         student:
           role === Role.STUDENT
@@ -211,14 +215,15 @@ export class AuthService {
   }
 
   async login(payload: LoginDto) {
+    const account = payload.account.trim();
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { username: payload.account },
-          { email: payload.account },
-          { phone: payload.account },
-          { student: { is: { studentCode: payload.account } } },
-          { teacher: { is: { teacherCode: payload.account } } },
+          { username: account },
+          { email: account },
+          { phone: account },
+          { student: { is: { studentCode: account } } },
+          { teacher: { is: { teacherCode: account } } },
         ],
       },
       include: {
@@ -449,4 +454,3 @@ export class AuthService {
   }
 
 }
-

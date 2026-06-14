@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/c
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { IdParamDto } from '../../common/dto/id-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ArchiveWrongQuestionDto } from './dto/archive-wrong-question.dto';
 import { QueryWrongbookDto } from './dto/query-wrongbook.dto';
@@ -39,10 +40,10 @@ export class WrongbookController {
   retry(
     @CurrentUser()
     user: { id: string; role: Role; student?: { id: string; grade: number } | null },
-    @Param('id') id: string,
+    @Param() params: IdParamDto,
     @Body() payload: RetryWrongQuestionDto,
   ) {
-    return this.wrongbookService.retry(user, id, payload);
+    return this.wrongbookService.retry(user, params.id, payload);
   }
 
   @Patch(':id/archive')
@@ -50,9 +51,9 @@ export class WrongbookController {
   archive(
     @CurrentUser()
     user: { id: string; role: Role; student?: { id: string; grade: number } | null },
-    @Param('id') id: string,
+    @Param() params: IdParamDto,
     @Body() payload: ArchiveWrongQuestionDto,
   ) {
-    return this.wrongbookService.archive(user, id, payload);
+    return this.wrongbookService.archive(user, params.id, payload);
   }
 }

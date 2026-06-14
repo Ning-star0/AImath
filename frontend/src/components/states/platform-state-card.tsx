@@ -48,8 +48,8 @@ function renderAction(action: StateAction | undefined, primary = false) {
   }
 
   const className = primary
-    ? 'math-button-primary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white'
-    : 'math-button-secondary rounded-[1rem] px-5 py-3 text-sm font-extrabold text-slate-700';
+    ? 'math-button-primary inline-flex max-w-full justify-center rounded-[1rem] px-5 py-3 text-center text-sm font-extrabold text-white'
+    : 'math-button-secondary inline-flex max-w-full justify-center rounded-[1rem] px-5 py-3 text-center text-sm font-extrabold text-slate-700';
 
   if (action.href) {
     return (
@@ -89,8 +89,8 @@ export function PlatformStateCard({
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
         {eyebrow}
       </p>
-      <h2 className="mt-3 font-math-display text-3xl font-extrabold text-ink">{title}</h2>
-      <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+      <h2 className="mt-3 break-words font-math-display text-3xl font-extrabold text-ink">{title}</h2>
+      <p className="mx-auto mt-3 max-w-2xl break-words text-sm leading-7 text-slate-600 sm:text-base">
         {description}
       </p>
 

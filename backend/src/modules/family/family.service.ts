@@ -45,7 +45,7 @@ function inferWrongCause(
   if (/周长|面积|体积|角|图形|圆|长方形|正方形|三角形|统计图/.test(text)) {
     return '概念理解不清';
   }
-  if (/计算|口算|竖式|分数|小数|百分数|\+|\-|\*|÷|乘|除|加|减/.test(text)) {
+  if (/计算|口算|竖式|分数|小数|百分数|[-+*÷]|乘|除|加|减/.test(text)) {
     return '计算细节失误';
   }
   if (/应用题|至少|最多|一共|剩下|比较|需要|已知|根据/.test(text)) {
@@ -87,7 +87,13 @@ export class FamilyService {
       };
     }
 
-    const selectedChild = children.find((item) => item.id === selectedChildId) ?? children[0];
+    const selectedChild = selectedChildId
+      ? children.find((item) => item.id === selectedChildId)
+      : children[0];
+
+    if (!selectedChild) {
+      throw new ForbiddenException('当前账号无法查看该孩子的学习数据。');
+    }
 
     const [exerciseRecords, wrongQuestions, reports, aiQaCount] = await Promise.all([
       this.prisma.exerciseRecord.findMany({
@@ -186,14 +192,6 @@ export class FamilyService {
       })
       .slice(0, 6);
 
-    const radarFallback = [
-      { knowledgePointName: '图形周长', mastery: 32, insight: '当前是最需要优先补强的知识点。' },
-      { knowledgePointName: '分数计算', mastery: 54, insight: '基础步骤已具备，但稳定性还不够。' },
-      { knowledgePointName: '应用题审题', mastery: 61, insight: '容易漏掉条件，需要多做圈画训练。' },
-      { knowledgePointName: '统计图识读', mastery: 73, insight: '整体较稳定，继续保持。' },
-      { knowledgePointName: '单位换算', mastery: 68, insight: '会做基础题，但综合题还需巩固。' },
-    ];
-
     const knowledgeRadar =
       weakKnowledgePoints.length > 0
         ? weakKnowledgePoints.slice(0, 5).map((item) => ({
@@ -207,10 +205,7 @@ export class FamilyService {
                   ? '已经具备基础，但稳定性还需要继续提高。'
                   : '当前掌握比较稳定，可以继续保持。',
           }))
-        : radarFallback.map((item, index) => ({
-            knowledgePointId: `fallback-${index}`,
-            ...item,
-          }));
+        : [];
 
     const causeSeed = new Map<string, { label: string; count: number; description: string }>([
       [
@@ -281,7 +276,9 @@ export class FamilyService {
     const aiSummaryParentSuggestion =
       Array.isArray(latestProfile?.recommendations) && latestProfile.recommendations[0]
         ? String(latestProfile.recommendations[0])
-        : `建议本周优先陪孩子复习 ${knowledgeRadar[0]?.knowledgePointName ?? '当前薄弱知识点'}，先做基础题，再回看最近错题。`;
+        : knowledgeRadar[0]
+          ? `建议本周优先陪孩子复习 ${knowledgeRadar[0].knowledgePointName}，先做基础题，再回看最近错题。`
+          : '建议先保持稳定练习，等系统积累更多做题和错题数据后再查看薄弱点分析。';
 
     return {
       child: {
@@ -367,11 +364,16 @@ export class FamilyService {
       throw new BadRequestException('当前家长账号已经绑定了这个学生。');
     }
 
+    const relationLabel = payload.relationLabel.trim();
+    if (!relationLabel) {
+      throw new BadRequestException('请填写与孩子的关系。');
+    }
+
     const binding = await this.prisma.parentBinding.create({
       data: {
         parentUserId: user.id,
         studentId: student.id,
-        relationLabel: payload.relationLabel.trim(),
+        relationLabel,
         bindingStatus: 'APPROVED',
       },
     });
@@ -406,7 +408,7 @@ export class FamilyService {
     };
   }
 
-  private async getAccessibleChildren(user: FamilyAuthUser) {
+  private async getAccessibleChildren(user: FamilyAuthUser): Promise<AccessibleChild[]> {
     if (user.role === Role.STUDENT) {
       const student = await this.prisma.student.findUnique({
         where: { userId: user.id },

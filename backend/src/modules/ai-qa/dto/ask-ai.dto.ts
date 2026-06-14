@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsInt,
@@ -7,7 +8,9 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class AskAiDto {
@@ -16,6 +19,8 @@ export class AskAiDto {
     description: '学生输入的原始题目文本',
   })
   @IsString()
+  @MinLength(1)
+  @MaxLength(3000)
   originalQuestion!: string;
 
   @ApiPropertyOptional({ example: 3, description: '学生年级' })
@@ -47,6 +52,7 @@ export class AskAiDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   questionType?: string;
 
   @ApiPropertyOptional({
@@ -55,7 +61,10 @@ export class AskAiDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(8)
   @IsString({ each: true })
+  @MinLength(1, { each: true })
+  @MaxLength(500, { each: true })
   options?: string[];
 
   @ApiPropertyOptional({
@@ -63,6 +72,7 @@ export class AskAiDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(8_000_000)
   imageDataUrl?: string;
 
   @ApiPropertyOptional({
@@ -70,5 +80,6 @@ export class AskAiDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   manualHint?: string;
 }

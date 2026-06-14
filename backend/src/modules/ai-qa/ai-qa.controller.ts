@@ -9,10 +9,11 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SceneParamDto } from '../../common/dto/id-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AskAiDto } from './dto/ask-ai.dto';
 import { OcrPreviewDto } from './dto/ocr-preview.dto';
-import { AiQaService } from './ai-qa.service';
+import { AiQaService, type SseResponse } from './ai-qa.service';
 
 @ApiTags('AI QA')
 @Controller('ai-qa')
@@ -48,16 +49,16 @@ export class AiQaController {
   stream(
     @CurrentUser() user: { id: string; student?: { id: string } | null },
     @Body() payload: AskAiDto,
-    @Res() response: any,
+    @Res() response: SseResponse,
   ) {
     return this.aiQaService.stream(user, payload, response);
   }
 
   @Get('ocr-capability/:scene')
   @ApiOperation({ summary: 'OCR 扩展能力占位接口' })
-  getOcrCapability(@Param('scene') scene: string) {
+  getOcrCapability(@Param() params: SceneParamDto) {
     return {
-      scene,
+      scene: params.scene,
       enabled: false,
       status: 'RESERVED',
       note: '阶段 4 仅预留图片 OCR 接口扩展位，后续将接入图像识别与题干提取。',

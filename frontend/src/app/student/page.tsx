@@ -65,7 +65,7 @@ export default function StudentHomePage() {
   const [report, setReport] = useState<ReportOverviewResult | null>(null);
   const [wrongQuestions, setWrongQuestions] = useState<WrongQuestionItem[]>([]);
   const [recommendedCount, setRecommendedCount] = useState(0);
-  const [selectedSubject, setSelectedSubject] = useState<SubjectKey>('MATH');
+  const selectedSubject: SubjectKey = 'MATH';
 
   useEffect(() => {
     hydrateSession();

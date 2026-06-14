@@ -89,9 +89,10 @@ export class ReportsService {
       this.prisma.exerciseRecord.findMany({
         where: {
           userId: user.id,
-          createdAt: {
-            gte: since,
-          },
+          OR: [
+            { submittedAt: { gte: since } },
+            { submittedAt: null, createdAt: { gte: since } },
+          ],
         },
         orderBy: {
           createdAt: 'asc',
@@ -99,6 +100,7 @@ export class ReportsService {
         select: {
           id: true,
           createdAt: true,
+          submittedAt: true,
         },
       }),
       this.prisma.aiQaRecord.count({
@@ -264,13 +266,13 @@ export class ReportsService {
 
   private buildLearningTrend(
     details: ExerciseDetailWithRelations[],
-    exerciseRecords: Array<{ id: string; createdAt: Date }>,
+    exerciseRecords: Array<{ id: string; createdAt: Date; submittedAt: Date | null }>,
     since: Date,
   ) {
     const recordCountByDate = new Map<string, number>();
 
     for (const record of exerciseRecords) {
-      const date = record.createdAt.toISOString().slice(0, 10);
+      const date = (record.submittedAt ?? record.createdAt).toISOString().slice(0, 10);
       recordCountByDate.set(date, (recordCountByDate.get(date) ?? 0) + 1);
     }
 

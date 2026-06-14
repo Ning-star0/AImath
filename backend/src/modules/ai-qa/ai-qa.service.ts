@@ -16,7 +16,7 @@ interface AuthUser {
   student?: { id: string } | null;
 }
 
-interface SseResponse {
+export interface SseResponse {
   status: (code: number) => void;
   setHeader: (name: string, value: string) => void;
   flushHeaders: () => void;
@@ -35,6 +35,7 @@ export class AiQaService {
   ) {}
 
   async ask(user: AuthUser, payload: AskAiDto) {
+    const subject = this.readSubject(payload);
     const answer = await this.openAiClient.answerMathQuestion({
       originalQuestion: payload.originalQuestion,
       grade: payload.grade,
@@ -50,15 +51,9 @@ export class AiQaService {
       },
     });
 
-    const persistedRecord = await this.persistAnswer(user, payload, answer);
+    const persistedRecord = await this.persistAnswer(user, payload, answer, subject);
 
-    if (user.student?.id) {
-      await this.studentMemoryService.refreshStudentMemory({
-        studentId: user.student.id,
-        subject: payload.context?.subject as string | undefined,
-        eventType: 'AI_QA',
-      });
-    }
+    await this.refreshStudentMemorySafely(user, subject);
 
     return {
       ...answer,
@@ -131,93 +126,107 @@ export class AiQaService {
   }
 
   async stream(user: AuthUser, payload: AskAiDto, response: SseResponse) {
-    this.setupSseResponse(response);
-    this.writeEvent(response, 'status', {
-      stage: 'started',
-      message: 'AI 正在审题，请稍候。',
-    });
+    const subject = this.readSubject(payload);
+    let responseEnded = false;
 
-    const hasImage = Boolean(payload.imageDataUrl?.trim());
-
-    const input = {
-      originalQuestion: payload.originalQuestion,
-      grade: payload.grade,
-      imageDataUrl: payload.imageDataUrl,
-      manualHint: payload.manualHint,
-      questionType: payload.questionType,
-      options: payload.options,
-      context: {
-        ...(payload.context ?? {}),
-        fromOcr: payload.fromOcr ?? false,
-        questionType: payload.questionType ?? null,
-        options: payload.options ?? [],
-      },
-    };
-
-    let answer: StructuredAiAnswer;
-
-    if (hasImage) {
-      // Image mode: send heartbeat while waiting for vision API
+    try {
+      this.setupSseResponse(response);
       this.writeEvent(response, 'status', {
-        stage: 'thinking',
-        message: '正在识别图片中的题目内容...',
+        stage: 'started',
+        message: 'AI 正在审题，请稍候。',
       });
 
-      const heartbeat = setInterval(() => {
+      const hasImage = Boolean(payload.imageDataUrl?.trim());
+
+      const input = {
+        originalQuestion: payload.originalQuestion,
+        grade: payload.grade,
+        imageDataUrl: payload.imageDataUrl,
+        manualHint: payload.manualHint,
+        questionType: payload.questionType,
+        options: payload.options,
+        context: {
+          ...(payload.context ?? {}),
+          fromOcr: payload.fromOcr ?? false,
+          questionType: payload.questionType ?? null,
+          options: payload.options ?? [],
+        },
+      };
+
+      let answer: StructuredAiAnswer;
+
+      if (hasImage) {
+        // Image mode: send heartbeat while waiting for vision API
         this.writeEvent(response, 'status', {
           stage: 'thinking',
-          message: '视觉模型正在分析题目，请耐心等待...',
+          message: '正在识别图片中的题目内容...',
         });
-      }, 5000);
 
-      try {
-        answer = await this.openAiClient.answerMathQuestion(input);
-      } finally {
-        clearInterval(heartbeat);
+        const heartbeat = setInterval(() => {
+          this.writeEvent(response, 'status', {
+            stage: 'thinking',
+            message: '视觉模型正在分析题目，请耐心等待...',
+          });
+        }, 5000);
+
+        try {
+          answer = await this.openAiClient.answerMathQuestion(input);
+        } finally {
+          clearInterval(heartbeat);
+        }
+
+        await this.emitPreview(response, answer);
+      } else {
+        // Text mode: use true streaming
+        this.writeEvent(response, 'status', {
+          stage: 'thinking',
+          message: '正在理解题意并整理解题步骤。',
+        });
+
+        answer = await this.openAiClient.streamMathQuestion(input, {
+          onChunk: (chunk) => {
+            this.writeEvent(response, 'chunk', { content: chunk });
+          },
+        });
       }
 
-      await this.emitPreview(response, answer);
-    } else {
-      // Text mode: use true streaming
-      this.writeEvent(response, 'status', {
-        stage: 'thinking',
-        message: '正在理解题意并整理解题步骤。',
-      });
+      const persistedRecord = await this.persistAnswer(user, payload, answer, subject);
 
-      answer = await this.openAiClient.streamMathQuestion(input, {
-        onChunk: (chunk) => {
-          this.writeEvent(response, 'chunk', { content: chunk });
+      await this.refreshStudentMemorySafely(user, subject);
+
+      this.writeEvent(response, 'result', {
+        ...answer,
+        recordId: persistedRecord?.id ?? null,
+        ocrPlaceholder: {
+          enabled: true,
+          status: payload.fromOcr ? 'USED' : 'NOT_USED',
+          note: payload.fromOcr ? '本次讲题使用了图片识题结果。' : '本次讲题使用了文本输入。',
         },
       });
+      this.writeEvent(response, 'done', { success: true });
+      response.end();
+      responseEnded = true;
+    } catch (error) {
+      this.logger.error(
+        `AI 流式答疑失败：${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      if (!responseEnded) {
+        this.writeEvent(response, 'error', {
+          message: 'AI 讲题暂时失败，请稍后重试。',
+        });
+        this.writeEvent(response, 'done', { success: false });
+        response.end();
+      }
     }
-
-    const persistedRecord = await this.persistAnswer(user, payload, answer);
-
-    if (user.student?.id) {
-      await this.studentMemoryService.refreshStudentMemory({
-        studentId: user.student.id,
-        subject: payload.context?.subject as string | undefined,
-        eventType: 'AI_QA',
-      });
-    }
-
-    this.writeEvent(response, 'result', {
-      ...answer,
-      recordId: persistedRecord?.id ?? null,
-      ocrPlaceholder: {
-        enabled: true,
-        status: payload.fromOcr ? 'USED' : 'NOT_USED',
-        note: payload.fromOcr ? '本次讲题使用了图片识题结果。' : '本次讲题使用了文本输入。',
-      },
-    });
-    this.writeEvent(response, 'done', { success: true });
-    response.end();
   }
 
   private async persistAnswer(
     user: AuthUser,
     payload: AskAiDto,
     answer: StructuredAiAnswer,
+    subject: string,
   ) {
     try {
       return await this.prisma.aiQaRecord.create({
@@ -227,6 +236,7 @@ export class AiQaService {
           originalQuestion: payload.originalQuestion,
           finalAnswer: answer.finalAnswer,
           grade: payload.grade,
+          subject,
           sourceContext: {
             ...(payload.context ?? {}),
             fromOcr: payload.fromOcr ?? false,
@@ -250,6 +260,31 @@ export class AiQaService {
         `AI 记录入库失败，已跳过持久化：${error instanceof Error ? error.message : 'unknown error'}`,
       );
       return null;
+    }
+  }
+
+  private readSubject(payload: AskAiDto) {
+    const contextSubject = payload.context?.subject;
+    return typeof contextSubject === 'string' && contextSubject.trim()
+      ? contextSubject.trim()
+      : 'MATH';
+  }
+
+  private async refreshStudentMemorySafely(user: AuthUser, subject: string) {
+    if (!user.student?.id) {
+      return;
+    }
+
+    try {
+      await this.studentMemoryService.refreshStudentMemory({
+        studentId: user.student.id,
+        subject,
+        eventType: 'AI_QA',
+      });
+    } catch (error) {
+      this.logger.warn(
+        `学生记忆刷新失败，已保留本次 AI 答疑结果：${error instanceof Error ? error.message : 'unknown error'}`,
+      );
     }
   }
 

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import type {
+  ChatCompletionContentPart,
+  ChatCompletionCreateParamsNonStreaming,
+} from 'openai/resources/chat/completions';
 import {
   buildMathQaSystemPrompt,
   buildMathQaUserPrompt,
@@ -160,33 +164,35 @@ export class OpenAiClient {
     }
 
     try {
-      const completion = await this.visionClient.chat.completions.create({
+      const content: ChatCompletionContentPart[] = [
+        {
+          type: 'image_url',
+          image_url: { url: input.imageDataUrl },
+        },
+        {
+          type: 'text',
+          text: [
+            '请识别这道小学数学题。',
+            '优先返回 JSON，字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
+            `年级参考：${input.grade ?? '未知'}`,
+            `预期题型：${input.questionType ?? '未指定'}`,
+            `补充提示：${input.manualHint?.trim() || '无'}`,
+            '如果无法严格返回 JSON，也请至少返回完整题干、选项和人工确认提示。',
+          ].join('\n'),
+        },
+      ];
+      const request: ChatCompletionCreateParamsNonStreaming = {
         model: this.visionModel,
         temperature: 0.2,
         max_tokens: 1000,
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'image_url' as const,
-                image_url: { url: input.imageDataUrl },
-              },
-              {
-                type: 'text' as const,
-                text: [
-                  '请识别这道小学数学题。',
-                  '优先返回 JSON，字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
-                  `年级参考：${input.grade ?? '未知'}`,
-                  `预期题型：${input.questionType ?? '未指定'}`,
-                  `补充提示：${input.manualHint?.trim() || '无'}`,
-                  '如果无法严格返回 JSON，也请至少返回完整题干、选项和人工确认提示。',
-                ].join('\n'),
-              },
-            ],
+            content,
           },
         ],
-      } as any);
+      };
+      const completion = await this.visionClient.chat.completions.create(request);
 
       const raw = completion.choices[0]?.message?.content ?? '';
       if (!raw) {
@@ -320,37 +326,42 @@ export class OpenAiClient {
         '当前未配置可用的视觉模型，本次先返回基础讲解。',
       );
     }
+    if (!input.imageDataUrl) {
+      return this.buildFallback(input, '未收到可识别的图片内容，本次先返回基础讲解。');
+    }
 
     try {
-      const completion = await this.visionClient.chat.completions.create({
+      const content: ChatCompletionContentPart[] = [
+        {
+          type: 'image_url',
+          image_url: { url: input.imageDataUrl },
+        },
+        {
+          type: 'text',
+          text: [
+            '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。',
+            '字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
+            `年级：${input.grade ?? '未知'}`,
+            `题型：${input.questionType ?? '未指定'}`,
+            `补充提示：${input.manualHint?.trim() || input.originalQuestion || '无'}`,
+            input.options?.length ? `选项：${input.options.join('；')}` : '无额外选项',
+            '请直接根据图片内容讲题，不要只做 OCR 摘抄。',
+            '如果无法严格返回 JSON，也至少给出完整题意理解、分步骤讲解、最终答案和知识点。',
+          ].join('\n'),
+        },
+      ];
+      const request: ChatCompletionCreateParamsNonStreaming = {
         model: this.visionModel,
         temperature: 0.3,
         max_tokens: 1500,
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'image_url' as const,
-                image_url: { url: input.imageDataUrl },
-              },
-              {
-                type: 'text' as const,
-                text: [
-                  '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。',
-                  '字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
-                  `年级：${input.grade ?? '未知'}`,
-                  `题型：${input.questionType ?? '未指定'}`,
-                  `补充提示：${input.manualHint?.trim() || input.originalQuestion || '无'}`,
-                  input.options?.length ? `选项：${input.options.join('；')}` : '无额外选项',
-                  '请直接根据图片内容讲题，不要只做 OCR 摘抄。',
-                  '如果无法严格返回 JSON，也至少给出完整题意理解、分步骤讲解、最终答案和知识点。',
-                ].join('\n'),
-              },
-            ],
+            content,
           },
         ],
-      } as any);
+      };
+      const completion = await this.visionClient.chat.completions.create(request);
 
       const raw = completion.choices[0]?.message?.content ?? '';
       if (!raw) {
@@ -596,22 +607,32 @@ export class OpenAiClient {
     }
   }
 
+  private normalizeStringList(value: unknown, maxItems: number, maxLength: number) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      .map((item) => item.trim().slice(0, maxLength))
+      .slice(0, maxItems);
+  }
+
+  private normalizeText(value: unknown, fallback: string, maxLength: number) {
+    if (typeof value !== 'string' || !value.trim()) {
+      return fallback;
+    }
+
+    return value.trim().slice(0, maxLength);
+  }
 
   private normalizeStructuredAnswer(
     answer: Partial<StructuredAiAnswer>,
     originalQuestion: string,
   ): StructuredAiAnswer {
-    const steps = Array.isArray(answer.steps)
-      ? answer.steps.filter((item): item is string => typeof item === 'string')
-      : [];
-
-    const knowledgePoints = Array.isArray(answer.knowledgePoints)
-      ? answer.knowledgePoints.filter((item): item is string => typeof item === 'string')
-      : [];
-
-    const similarQuestions = Array.isArray(answer.similarQuestions)
-      ? answer.similarQuestions.filter((item): item is string => typeof item === 'string')
-      : [];
+    const steps = this.normalizeStringList(answer.steps, 8, 500);
+    const knowledgePoints = this.normalizeStringList(answer.knowledgePoints, 8, 80);
+    const similarQuestions = this.normalizeStringList(answer.similarQuestions, 5, 300);
 
     const difficulty =
       answer.difficulty === 'EASY' ||
@@ -621,28 +642,27 @@ export class OpenAiClient {
         : 'EASY';
 
     return {
-      originalQuestion:
-        typeof answer.originalQuestion === 'string' && answer.originalQuestion
-          ? answer.originalQuestion
-          : originalQuestion,
+      originalQuestion: this.normalizeText(answer.originalQuestion, originalQuestion, 3000),
       steps:
         steps.length > 0
           ? steps
           : ['先审题，再按顺序一步一步解题，最后检查答案是否合理。'],
-      finalAnswer:
-        typeof answer.finalAnswer === 'string' && answer.finalAnswer
-          ? answer.finalAnswer
-          : '暂时无法稳定解析这道题，请换一种更清晰的表述再试试。',
+      finalAnswer: this.normalizeText(
+        answer.finalAnswer,
+        '暂时无法稳定解析这道题，请换一种更清晰的表述再试试。',
+        1000,
+      ),
       knowledgePoints: knowledgePoints.length > 0 ? knowledgePoints : ['基础数学思维'],
       difficulty,
-      riskNotice:
-        typeof answer.riskNotice === 'string' && answer.riskNotice
-          ? answer.riskNotice
-          : '本次结果经过结构化兜底处理，建议结合题目再做一次检查。',
+      riskNotice: this.normalizeText(
+        answer.riskNotice,
+        '本次结果经过结构化兜底处理，建议结合题目再做一次检查。',
+        500,
+      ),
       similarQuestions:
         similarQuestions.length > 0
           ? similarQuestions
-          : ['后画系统会根据知识点推荐相似练习。'],
+          : ['后续系统会根据知识点推荐相似练习。'],
       refused: this.isRefusedAnswer(answer),
     };
   }
@@ -667,5 +687,5 @@ export function extractOptionsFromText(text: string) {
   return text
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => /^[A-DＡ-Ｄ][\.、\s]/i.test(line));
+    .filter((line) => /^[A-DＡ-Ｄ][.、\s]/i.test(line));
 }

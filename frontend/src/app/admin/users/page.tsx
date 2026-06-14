@@ -26,6 +26,7 @@ const adminNavItems = [
 
 const roleLabelMap: Record<string, string> = {
   STUDENT: '学生',
+  PARENT: '家长',
   TEACHER: '教师',
   ADMIN: '管理员',
 };
@@ -182,6 +183,24 @@ export default function AdminUsersPage() {
 
     try {
       const response = await adminService.deleteUser(userId);
+      const cleanupNotes = [
+        `练习 ${response.cleanupSummary.exerciseRecordCount} 条`,
+        `错题 ${response.cleanupSummary.wrongQuestionCount} 条`,
+      ];
+      if (response.cleanupSummary.childBindingCount) {
+        cleanupNotes.push(`孩子绑定 ${response.cleanupSummary.childBindingCount} 条`);
+      }
+      if (response.cleanupSummary.parentBindingCount) {
+        cleanupNotes.push(`家长绑定 ${response.cleanupSummary.parentBindingCount} 条`);
+      }
+      if (response.cleanupSummary.memorySnapshotCount || response.cleanupSummary.memoryHistoryCount) {
+        cleanupNotes.push(
+          `学习记忆 ${
+            (response.cleanupSummary.memorySnapshotCount ?? 0) +
+            (response.cleanupSummary.memoryHistoryCount ?? 0)
+          } 条`,
+        );
+      }
       setData((current) =>
         current
           ? {
@@ -192,7 +211,7 @@ export default function AdminUsersPage() {
           : current,
       );
       setFeedback(
-        `已删除账号"${response.deletedUser.displayName}"，并清理练习 ${response.cleanupSummary.exerciseRecordCount} 条、错题 ${response.cleanupSummary.wrongQuestionCount} 条。`,
+        `已删除账号"${response.deletedUser.displayName}"，并清理${cleanupNotes.join('、')}。`,
       );
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '删除账号失败。');

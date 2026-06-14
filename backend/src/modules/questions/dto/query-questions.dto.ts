@@ -13,7 +13,7 @@ import {
 export class QueryQuestionsDto {
   @ApiPropertyOptional({ example: 3, description: '年级筛选' })
   @IsOptional()
-  @Transform(({ value }) => Number(value))
+  @Transform(({ value }) => (value === undefined || value === '' ? undefined : Number(value)))
   @IsInt()
   @Min(1)
   @Max(6)
@@ -21,7 +21,7 @@ export class QueryQuestionsDto {
 
   @ApiPropertyOptional({ example: 2, description: '难度筛选' })
   @IsOptional()
-  @Transform(({ value }) => Number(value))
+  @Transform(({ value }) => (value === undefined || value === '' ? undefined : Number(value)))
   @IsInt()
   @Min(1)
   @Max(5)
@@ -49,7 +49,7 @@ export class QueryQuestionsDto {
 
   @ApiPropertyOptional({ example: 20, description: '每页数量' })
   @IsOptional()
-  @Transform(({ value }) => Number(value))
+  @Transform(({ value }) => (value === undefined || value === '' ? undefined : Number(value)))
   @IsInt()
   @Min(1)
   @Max(100)

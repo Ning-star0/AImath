@@ -69,6 +69,10 @@ export interface DeleteUserResult {
     wrongQuestionCount: number;
     aiQaRecordCount: number;
     learningReportCount: number;
+    memorySnapshotCount?: number;
+    memoryHistoryCount?: number;
+    childBindingCount?: number;
+    parentBindingCount?: number;
   };
 }
 

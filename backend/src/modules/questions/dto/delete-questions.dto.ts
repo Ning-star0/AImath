@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMinSize, IsArray, IsString } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class DeleteQuestionsDto {
   @ApiProperty({
@@ -8,6 +8,9 @@ export class DeleteQuestionsDto {
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @IsString({ each: true })
+  @MinLength(1, { each: true })
+  @MaxLength(100, { each: true })
   ids!: string[];
 }

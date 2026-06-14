@@ -98,7 +98,6 @@ export default function StudentPracticePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<ExerciseSubmitResult | null>(null);
-  const [report, setReport] = useState<ReportOverviewResult | null>(null);
   const [statusMap, setStatusMap] = useState<Map<string, QuestionStatus>>(new Map());
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTitle, setAiTitle] = useState('AI 辅助');
@@ -107,6 +106,7 @@ export default function StudentPracticePage() {
   const [pageTipTone, setPageTipTone] = useState<PageTipTone>('info');
   const [selectedSubject, setSelectedSubject] = useState('MATH');
   const [retryQuestionId, setRetryQuestionId] = useState('');
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   useEffect(() => {
     hydrateSession();
@@ -153,7 +153,6 @@ export default function StudentPracticePage() {
           : questionData.list;
         const nextStatusMap = buildStatusMap(reportData);
         setQuestions(mergedQuestions);
-        setReport(reportData);
         setStatusMap(nextStatusMap);
         setActiveIndex((current) => {
           if (mergedQuestions.length === 0) {
@@ -186,22 +185,6 @@ export default function StudentPracticePage() {
     void loadData();
   }, [accessToken, currentUser, retryQuestionId, selectedSubject, setSession]);
 
-  if (!accessToken && !currentUser) {
-    return (
-      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
-        <AuthRequiredState />
-      </PageShell>
-    );
-  }
-
-  if (currentUser?.role && currentUser.role !== 'STUDENT') {
-    return (
-      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
-        <PermissionDeniedState />
-      </PageShell>
-    );
-  }
-
   const activeQuestion = questions[activeIndex] ?? null;
   const progressLabel = questions.length > 0 ? `${activeIndex + 1} / ${questions.length}` : '0 / 0';
   const answeredCount = useMemo(() => [...statusMap.values()].filter((item) => item !== 'UNANSWERED').length, [statusMap]);
@@ -221,6 +204,22 @@ export default function StudentPracticePage() {
   const visibleQuestions = activeStage
     ? questions.slice(activeStage.startIndex, activeStage.endIndex + 1)
     : questions;
+
+  if (!accessToken && !currentUser) {
+    return (
+      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
+        <AuthRequiredState />
+      </PageShell>
+    );
+  }
+
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <PageShell title="练习闯关" description="按当前年级完成练习、查看解析并继续闯关。">
+        <PermissionDeniedState />
+      </PageShell>
+    );
+  }
 
   const handleSelectQuestion = (index: number) => {
     setActiveIndex(index);
@@ -245,7 +244,6 @@ export default function StudentPracticePage() {
   const refreshReportState = async (preserveIndex = activeIndex) => {
     const refreshedReport = await reportService.getOverview();
     const nextStatusMap = buildStatusMap(refreshedReport);
-    setReport(refreshedReport);
     setStatusMap(nextStatusMap);
     setActiveIndex((current) => {
       if (questions.length === 0) {
@@ -344,14 +342,6 @@ export default function StudentPracticePage() {
     }
   };
 
-  if (!accessToken && !currentUser) {
-    return (
-      <PageShell title="练习闯关" description="优先完成当前题目，再决定是否需要 AI 辅助。">
-        <AuthRequiredState />
-      </PageShell>
-    );
-  }
-
   if (error && !loading && questions.length === 0) {
     const errorKind = getPlatformErrorKind(error);
     return (
@@ -374,8 +364,6 @@ export default function StudentPracticePage() {
       </PageShell>
     );
   }
-
-  const [showMobileNav, setShowMobileNav] = useState(false);
 
   return (
     <PageShell title="练习闯关" description="题目状态会按答对、答错和待做真实保留，刷新后不会丢失。">
