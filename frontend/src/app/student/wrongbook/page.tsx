@@ -261,6 +261,8 @@ export default function WrongbookPage() {
         <div className="grid gap-3">
           {listData?.list.map((item) => {
             const status = getStatusCopy(item);
+            const isAiLoading = aiLoadingId === item.id;
+            const shouldShowAiPanel = isAiLoading || Boolean(aiResults[item.id]) || Boolean(aiErrors[item.id]);
 
             return (
               <div key={item.id} className="rounded-xl bg-white p-4 shadow-sm">
@@ -302,13 +304,12 @@ export default function WrongbookPage() {
                   </button>
                 </div>
 
-                {aiErrors[item.id] ? <p className="mt-2 text-xs text-red-500">{aiErrors[item.id]}</p> : null}
-                {aiResults[item.id] ? (
+                {shouldShowAiPanel ? (
                   <div className="mt-3">
                     <CompactAiResult
                       title={aiPanelTitle[item.id] ?? 'AI 辅助'}
-                      result={aiResults[item.id]}
-                      loading={aiLoadingId === item.id}
+                      result={aiResults[item.id] ?? null}
+                      loading={isAiLoading}
                       error={aiErrors[item.id] ?? ''}
                     />
                   </div>
@@ -392,6 +393,8 @@ export default function WrongbookPage() {
             <div className="grid gap-4">
               {listData?.list.map((item) => {
                 const status = getStatusCopy(item);
+                const isAiLoading = aiLoadingId === item.id;
+                const shouldShowAiPanel = isAiLoading || Boolean(aiResults[item.id]) || Boolean(aiErrors[item.id]);
 
                 return (
                   <div key={item.id} className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
@@ -440,13 +443,12 @@ export default function WrongbookPage() {
                       </button>
                     </div>
 
-                    {aiErrors[item.id] ? <p className="mt-3 text-sm text-red-600">{aiErrors[item.id]}</p> : null}
-                    {aiResults[item.id] ? (
+                    {shouldShowAiPanel ? (
                       <div className="mt-4">
                         <CompactAiResult
                           title={aiPanelTitle[item.id] ?? 'AI 辅助'}
-                          result={aiResults[item.id]}
-                          loading={aiLoadingId === item.id}
+                          result={aiResults[item.id] ?? null}
+                          loading={isAiLoading}
                           error={aiErrors[item.id] ?? ''}
                         />
                       </div>

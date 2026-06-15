@@ -13,6 +13,7 @@ import {
   PermissionDeniedState,
   SessionExpiredState,
 } from '@/components/states/platform-states';
+import { getRewardProgress, readRewardState } from '@/lib/game-rewards';
 import { getPlatformErrorKind } from '@/lib/platform-errors';
 import { authService } from '@/services/auth.service';
 import { questionService } from '@/services/question.service';
@@ -30,10 +31,8 @@ const subjectOptions: Array<{ value: SubjectKey; label: string; status: 'ACTIVE'
 
 function buildChallengeProfile(report: ReportOverviewResult | null) {
   const answeredCount = report?.questionDrilldowns.all.length ?? 0;
-  const level = Math.max(1, Math.floor(answeredCount / 10) + 1);
   const clearedStages = Math.floor(answeredCount / 5);
   return {
-    level,
     clearedStages,
     answeredCount,
   };
@@ -65,6 +64,7 @@ export default function StudentHomePage() {
   const [report, setReport] = useState<ReportOverviewResult | null>(null);
   const [wrongQuestions, setWrongQuestions] = useState<WrongQuestionItem[]>([]);
   const [recommendedCount, setRecommendedCount] = useState(0);
+  const [rewardStars, setRewardStars] = useState(0);
   const selectedSubject: SubjectKey = 'MATH';
 
   useEffect(() => {
@@ -108,10 +108,30 @@ export default function StudentHomePage() {
     void loadStudentHomeData();
   }, [accessToken, currentUser, selectedSubject, setSession]);
 
+  useEffect(() => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    const refreshRewardState = () => {
+      setRewardStars(readRewardState(currentUser.id).totalStars);
+    };
+
+    refreshRewardState();
+    window.addEventListener('focus', refreshRewardState);
+    document.addEventListener('visibilitychange', refreshRewardState);
+
+    return () => {
+      window.removeEventListener('focus', refreshRewardState);
+      document.removeEventListener('visibilitychange', refreshRewardState);
+    };
+  }, [currentUser?.id]);
+
   const displayName = currentUser?.displayName ?? '同学';
   const grade = currentUser?.grade ?? currentUser?.student?.grade ?? 3;
   const taskStatus = useMemo(() => getTaskStatus(report), [report]);
   const challengeProfile = useMemo(() => buildChallengeProfile(report), [report]);
+  const rewardProgress = useMemo(() => getRewardProgress(rewardStars), [rewardStars]);
 
   const heroCopy = useMemo(() => {
     if (taskStatus === 'COMPLETED') {
@@ -234,7 +254,7 @@ export default function StudentHomePage() {
           <div className="h-8 w-px bg-slate-100" />
           <div className="text-center">
             <p className="text-xs text-slate-400">等级</p>
-            <p className="text-lg font-extrabold text-violet-600">Lv.{challengeProfile.level}</p>
+            <p className="text-lg font-extrabold text-violet-600">Lv.{rewardProgress.level}</p>
           </div>
         </div>
 
@@ -263,7 +283,7 @@ export default function StudentHomePage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className={heroCopy.statusTone}>{heroCopy.statusLabel}</span>
                 <span className="math-chip math-chip-success">{grade} 年级</span>
-                <span className="math-chip math-chip-primary">Lv.{challengeProfile.level}</span>
+                <span className="math-chip math-chip-primary">Lv.{rewardProgress.level}</span>
                 <span className="math-chip math-chip-violet">数学</span>
               </div>
 

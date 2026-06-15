@@ -6,6 +6,12 @@ function buildStepBadge(index: number) {
   return String(index + 1).padStart(2, '0');
 }
 
+const loadingSteps = [
+  '读取题干和错误答案',
+  '定位容易出错的知识点',
+  '整理错因和下一步练法',
+];
+
 interface CompactAiResultProps {
   title: string;
   result: AiQaResult | null;
@@ -35,7 +41,20 @@ export function CompactAiResult({
       </div>
 
       {loading ? (
-        <p className="mt-3 text-sm text-slate-500">AI 导师正在整理更清晰的讲解内容...</p>
+        <div className="mt-4 rounded-[1.25rem] border border-dashed border-brand-200 bg-brand-50/40 px-4 py-4">
+          <p className="text-sm font-semibold text-brand-700">AI 导师正在分析，不会马上跳结果。</p>
+          <div className="mt-3 grid gap-2">
+            {loadingSteps.map((step, index) => (
+              <div key={step} className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-black text-white">
+                  {index + 1}
+                </span>
+                <span className="text-xs font-semibold text-slate-600">{step}</span>
+                <span className="ml-auto h-2 w-2 rounded-full bg-brand-400 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       {error ? (
