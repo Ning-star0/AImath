@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ClipboardEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { AnswerResultCard } from '@/components/ai-qa/answer-result-card';
 import { QuestionInputCard } from '@/components/ai-qa/question-input-card';
@@ -18,6 +18,15 @@ interface AiQaFormValues {
 }
 
 const practiceQueueStorageKey = 'student-practice-queue';
+const supportedImageMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+]);
+const supportedImageFormatText = 'JPG、PNG、WebP、GIF、BMP';
+const maxOriginalImageBytes = 12 * 1024 * 1024;
 
 function buildPreviewLines(preview: string) {
   return preview
@@ -42,6 +51,18 @@ function buildQuestionPayload(originalQuestion: string, questionType: string, op
 }
 
 async function compressImageForOcr(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error(`请选择图片文件，当前支持 ${supportedImageFormatText}。`);
+  }
+
+  if (!supportedImageMimeTypes.has(file.type)) {
+    throw new Error(`当前浏览器不支持直接处理这种图片格式，请先转成 ${supportedImageFormatText} 后再上传或粘贴。`);
+  }
+
+  if (file.size > maxOriginalImageBytes) {
+    throw new Error('图片文件过大，请先裁剪或压缩到 12MB 以内。');
+  }
+
   const maxSide = 1600;
   const outputQuality = 0.78;
   const objectUrl = URL.createObjectURL(file);
@@ -212,6 +233,63 @@ export default function StudentAiQaPage() {
     await runAiExplain(values.originalQuestion);
   });
 
+  const applyImageFile = useCallback(async (file: File, sourceLabel: string) => {
+    const fallbackName = sourceLabel === '粘贴图片' ? '粘贴的题目图片' : '题目图片';
+
+    setSelectedImageName(file.name || fallbackName);
+    setSelectedImageDataUrl('');
+    setSubmitError('');
+    setOcrStatus('正在处理图片...');
+
+    try {
+      const nextValue = await compressImageForOcr(file);
+      setSelectedImageDataUrl(nextValue);
+      setOcrStatus(`${sourceLabel}已就绪，可以直接点击“开始讲解”。`);
+    } catch (error) {
+      setSelectedImageName('');
+      setSelectedImageDataUrl('');
+      setOcrStatus(error instanceof Error ? error.message : '图片处理失败，请重新选择图片后再试。');
+    }
+  }, []);
+
+  const handleImageInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+
+      if (!file) {
+        setSelectedImageName('');
+        setSelectedImageDataUrl('');
+        setOcrStatus('');
+        return;
+      }
+
+      await applyImageFile(file, '上传图片');
+    },
+    [applyImageFile],
+  );
+
+  const handleImagePaste = useCallback(
+    async (event: ClipboardEvent<HTMLElement>) => {
+      const imageItem = Array.from(event.clipboardData.items).find(
+        (item) => item.kind === 'file' && item.type.startsWith('image/'),
+      );
+
+      if (!imageItem) {
+        return;
+      }
+
+      const file = imageItem.getAsFile();
+      if (!file) {
+        return;
+      }
+
+      event.preventDefault();
+      await applyImageFile(file, '粘贴图片');
+    },
+    [applyImageFile],
+  );
+
   const handleUseSimilarQuestion = (question: string) => {
     setValue('originalQuestion', question);
     setQuestionType('SHORT_ANSWER');
@@ -245,7 +323,7 @@ export default function StudentAiQaPage() {
       description="这里保留题目输入、图片讲题和讲解结果，让你更专注地看懂这道题。"
     >
       {/* Mobile layout */}
-      <div className="sm:hidden">
+      <div className="sm:hidden" onPaste={handleImagePaste}>
         {/* Input section */}
         <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
@@ -287,26 +365,9 @@ export default function StudentAiQaPage() {
             <input
               id="ai-qa-image-upload-mobile"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
               capture="environment"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                setSelectedImageName(file?.name ?? '');
-                setSelectedImageDataUrl('');
-                setSubmitError('');
-                setOcrStatus('');
-
-                if (!file) return;
-
-                try {
-                  const nextValue = await compressImageForOcr(file);
-                  setSelectedImageDataUrl(nextValue);
-                  setOcrStatus('图片已就绪');
-                } catch (error) {
-                  setSelectedImageDataUrl('');
-                  setOcrStatus(error instanceof Error ? error.message : '图片处理失败');
-                }
-              }}
+              onChange={handleImageInputChange}
               className="hidden"
             />
             <label
@@ -314,8 +375,11 @@ export default function StudentAiQaPage() {
               className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 py-3 text-sm font-medium text-slate-500"
             >
               <span>📷</span>
-              <span>{selectedImageName || '拍照或上传图片'}</span>
+              <span>{selectedImageName || '拍照、上传或粘贴图片'}</span>
             </label>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              支持 {supportedImageFormatText}；电脑截图后也可以直接粘贴。
+            </p>
           </div>
 
           {ocrStatus ? (
@@ -368,7 +432,7 @@ export default function StudentAiQaPage() {
       </div>
 
       {/* Desktop layout */}
-      <section className="hidden sm:block">
+      <section className="hidden sm:block" onPaste={handleImagePaste}>
         <div className="portal-board px-5 py-5 sm:px-6">
           <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
             <article className="grid gap-4">
@@ -400,7 +464,8 @@ export default function StudentAiQaPage() {
                 <div>
                   <p className="font-math-display text-2xl font-extrabold text-ink">拍照答疑与识题</p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
-                    上传图片后，直接点击上面的"开始讲解"即可。如果题目比较模糊，也可以先在下面补充题干文字。
+                    电脑端可以截图后直接按 Ctrl+V 粘贴图片；也可以选择本地图片后，直接点击上面的"开始讲解"。
+                    如果题目比较模糊，可以先在下面补充题干文字。
                   </p>
                 </div>
 
@@ -410,30 +475,8 @@ export default function StudentAiQaPage() {
                     <input
                       id="ai-qa-image-upload"
                       type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        setSelectedImageName(file?.name ?? '');
-                        setSelectedImageDataUrl('');
-                        setSubmitError('');
-                        setOcrStatus('');
-
-                        if (!file) return;
-
-                        try {
-                          const nextValue = await compressImageForOcr(file);
-                          setSelectedImageDataUrl(nextValue);
-                          setOcrStatus('图片已压缩并就绪，可以识别题干或直接讲题。');
-                          return;
-                        } catch (error) {
-                          setSelectedImageDataUrl('');
-                          setOcrStatus(
-                            error instanceof Error ? error.message : '图片处理失败，请重新选择图片后再试。',
-                          );
-                          return;
-                        }
-                      }}
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
+                      onChange={handleImageInputChange}
                       className="hidden"
                     />
                     <label
@@ -441,10 +484,10 @@ export default function StudentAiQaPage() {
                       className="group flex min-h-[128px] cursor-pointer flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-brand-200 bg-[linear-gradient(180deg,#F8FBFF,#FFFFFF)] px-5 py-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-[0_14px_30px_rgba(63,81,181,0.12)]"
                     >
                       <span className="inline-flex rounded-full bg-brand-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm transition group-hover:bg-brand-700">
-                        选择图片或直接拍照
+                        选择图片或 Ctrl+V 粘贴
                       </span>
                       <span className="mt-3 text-sm leading-7 text-slate-600">
-                        支持手机直接拍照，也支持从相册上传作业图片。
+                        支持 {supportedImageFormatText}。HEIC/HEIF 请先转成 JPG 或 PNG。
                       </span>
                       {selectedImageName ? (
                         <span className="mt-3 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
