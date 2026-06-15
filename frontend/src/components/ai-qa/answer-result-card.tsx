@@ -38,31 +38,28 @@ export function AnswerResultCard({
   const showRiskNotice = shouldShowRiskNotice(result?.riskNotice);
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-card">
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+    <section className="relative overflow-hidden rounded-[1.4rem] border border-white/80 bg-white shadow-card">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-2 inline-flex rounded-full bg-brand-50/90 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
             专属数学辅导
           </div>
-          <h2 className="text-xl font-semibold text-ink">AI 讲题结果</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            先理解题意，再一步一步讲清思路，最后再回到答案和知识点。
-          </p>
+          <h2 className="text-lg font-semibold text-ink">AI 讲题结果</h2>
         </div>
         <span className="inline-flex w-fit rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 shadow-sm">
           {streamStatus}
         </span>
       </div>
 
-      <div className="max-h-[68vh] overflow-y-auto bg-white px-6 py-6 sm:px-7">
+      <div className="max-h-[72vh] overflow-y-auto bg-white px-4 py-4">
         {!result && !hasPreview ? (
-          <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-sky-100 text-3xl shadow-sm">
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-7 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-sky-100 text-xl shadow-sm">
               题
             </div>
-            <p className="mt-4 text-base font-medium text-slate-700">还没有开始讲题</p>
-            <p className="mt-2 text-sm leading-7 text-slate-500">
-              输入一道数学题后，这里会按"题目理解、分步讲解、最终答案、相似题推荐"的顺序展示内容。
+            <p className="mt-3 text-base font-medium text-slate-700">还没有开始讲题</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              输入题目或粘贴图片后，讲解会显示在这里。
             </p>
           </div>
         ) : loading && hasPreview && !result ? (

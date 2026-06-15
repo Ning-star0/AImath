@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { AnswerResultCard } from '@/components/ai-qa/answer-result-card';
 import { QuestionInputCard } from '@/components/ai-qa/question-input-card';
 import { PageShell } from '@/components/base/page-shell';
-import { EinsteinTipCard } from '@/components/brand/einstein-tip-card';
 import { AuthRequiredState } from '@/components/states/platform-states';
 import { awardStars } from '@/lib/game-rewards';
 import { aiService } from '@/services/ai.service';
@@ -433,17 +432,17 @@ export default function StudentAiQaPage() {
 
       {/* Desktop layout */}
       <section className="hidden sm:block" onPaste={handleImagePaste}>
-        <div className="portal-board px-5 py-5 sm:px-6">
-          <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-            <article className="grid gap-4">
-              <div className="rounded-[2rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-5 py-5">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="math-chip math-chip-primary">专属数学辅导</span>
-                  <span className="math-chip math-chip-success">分步骤讲解</span>
+        <div className="portal-board px-4 py-4 sm:px-5">
+          <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+            <article className="grid content-start gap-3">
+              <div className="rounded-[1.4rem] border border-[#F6D36A] bg-[linear-gradient(180deg,#FFFDF3,#FFFFFF)] px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="math-chip math-chip-primary">AI 讲题</span>
+                  <span className="math-chip math-chip-success">输入 / 粘贴图片</span>
                 </div>
-                <h2 className="font-math-display text-3xl font-extrabold text-ink">把这道题交给爱因导师</h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  支持直接输入题干，也支持上传图片。现在图片题可以直接进入 AI 讲题，不再必须先确认 OCR 文本。
+                <h2 className="mt-3 font-math-display text-2xl font-extrabold text-ink">把题目交给爱因导师</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  写题干，或截图后直接 Ctrl+V 粘贴图片。
                 </p>
               </div>
 
@@ -454,24 +453,20 @@ export default function StudentAiQaPage() {
                 loading={loading}
                 error={submitError}
                 helperMessage={helperMessage}
+                compact
                 onChange={(value) => setValue('originalQuestion', value)}
                 onQuestionTypeChange={setQuestionType}
                 onOptionsTextChange={setOptionsText}
                 onSubmit={() => void onSubmit()}
               />
 
-              <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
-                <div>
-                  <p className="font-math-display text-2xl font-extrabold text-ink">拍照答疑与识题</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    电脑端可以截图后直接按 Ctrl+V 粘贴图片；也可以选择本地图片后，直接点击上面的"开始讲解"。
-                    如果题目比较模糊，可以先在下面补充题干文字。
-                  </p>
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-slate-500">上传题目照片</span>
+              <div className="rounded-[1.4rem] border border-brand-100 bg-white px-4 py-4 shadow-sm">
+                <div className="grid gap-3 lg:grid-cols-[0.88fr_1.12fr]">
+                  <div className="space-y-2">
+                    <p className="text-sm font-black text-brand-700">图片题</p>
+                    <p className="text-xs leading-5 text-slate-500">
+                      电脑截图可直接 Ctrl+V；也可选择本地图片。
+                    </p>
                     <input
                       id="ai-qa-image-upload"
                       type="file"
@@ -481,50 +476,33 @@ export default function StudentAiQaPage() {
                     />
                     <label
                       htmlFor="ai-qa-image-upload"
-                      className="group flex min-h-[128px] cursor-pointer flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-brand-200 bg-[linear-gradient(180deg,#F8FBFF,#FFFFFF)] px-5 py-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-[0_14px_30px_rgba(63,81,181,0.12)]"
+                      className="group flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-brand-200 bg-[linear-gradient(180deg,#F8FBFF,#FFFFFF)] px-4 py-3 text-center text-sm font-extrabold text-brand-700 transition hover:border-brand-400"
                     >
-                      <span className="inline-flex rounded-full bg-brand-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm transition group-hover:bg-brand-700">
-                        选择图片或 Ctrl+V 粘贴
-                      </span>
-                      <span className="mt-3 text-sm leading-7 text-slate-600">
-                        支持 {supportedImageFormatText}。HEIC/HEIF 请先转成 JPG 或 PNG。
-                      </span>
-                      {selectedImageName ? (
-                        <span className="mt-3 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-                          已选择：{selectedImageName}
-                        </span>
-                      ) : null}
+                      {selectedImageName ? `已选择：${selectedImageName}` : '选择图片或粘贴'}
                     </label>
-                  </label>
+                    <p className="text-xs leading-5 text-slate-400">
+                      支持 {supportedImageFormatText}；HEIC/HEIF 请先转 JPG 或 PNG。
+                    </p>
+                  </div>
 
                   <label className="space-y-2">
                     <span className="text-sm font-semibold text-slate-500">题干补充（可选）</span>
                     <textarea
                       value={ocrDraftText}
                       onChange={(event) => setOcrDraftText(event.target.value)}
-                      className="math-input min-h-[128px]"
-                      placeholder={"如果图片里的题目不够清楚，可以先在这里补充题干，再点击上面的开始讲解。"}
+                      className="math-input min-h-[104px]"
+                      placeholder="图片不清楚时，在这里补充题干。"
                     />
                   </label>
                 </div>
 
-                <div className="mt-4 rounded-[1.2rem] bg-[#F8FBFF] px-4 py-4 text-sm leading-7 text-slate-600">
-                  {ocrStatus || '图片准备好以后，直接点击上面的"开始讲解"即可。'}
+                <div className="mt-3 rounded-xl bg-[#F8FBFF] px-3 py-2 text-xs leading-5 text-slate-600">
+                  {ocrStatus || '图片就绪后，点“开始讲解”。'}
                 </div>
               </div>
             </article>
 
-            <div className="grid gap-4">
-              <EinsteinTipCard
-                message="如果你已经自己想过一遍，再来看分步骤讲解，效果会更好。"
-                tone="yellow"
-              />
-
-              <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-4 shadow-sm">
-                <p className="text-sm font-black text-brand-700">当前状态</p>
-                <p className="mt-2 text-sm leading-7 text-slate-700">{streamStatus}</p>
-              </div>
-
+            <div className="grid content-start gap-3">
               <AnswerResultCard
                 result={result}
                 loading={loading}
