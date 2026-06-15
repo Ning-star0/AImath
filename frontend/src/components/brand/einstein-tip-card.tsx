@@ -1,6 +1,6 @@
 'use client';
 
-import { EinsteinMentor } from '@/components/brand/einstein-mentor';
+import Image from 'next/image';
 
 interface EinsteinTipCardProps {
   title?: string;
@@ -19,7 +19,6 @@ const toneMap = {
 export function EinsteinTipCard({
   title = '爱因导师建议',
   message,
-  mood = 'guide',
   tone = 'blue',
   className = '',
 }: EinsteinTipCardProps) {
@@ -27,7 +26,14 @@ export function EinsteinTipCard({
     <section className={`rounded-[1.6rem] border px-4 py-4 shadow-sm ${toneMap[tone]} ${className}`}>
       <div className="flex items-start gap-4">
         <div className="shrink-0 rounded-[1.1rem] bg-white p-2 shadow-sm">
-          <EinsteinMentor size="sm" mood={mood} />
+          <Image
+            src="/brand/ai-robot-mentor.png"
+            alt="AI 机器人导师头像"
+            width={96}
+            height={96}
+            priority={false}
+            className="h-24 w-24 rounded-[1rem] object-cover"
+          />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-black tracking-[0.14em] text-brand-700">{title}</p>
