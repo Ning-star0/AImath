@@ -183,7 +183,7 @@ export class FamilyService {
       masteryMap.set(current.knowledgePointId, current);
     }
 
-    const weakKnowledgePoints = [...masteryMap.values()]
+    const reportWeakKnowledgePoints = [...masteryMap.values()]
       .sort((a, b) => {
         if (b.wrongCount !== a.wrongCount) {
           return b.wrongCount - a.wrongCount;
@@ -191,6 +191,43 @@ export class FamilyService {
         return a.correctRate - b.correctRate;
       })
       .slice(0, 6);
+
+    const wrongQuestionWeakMap = new Map<
+      string,
+      {
+        knowledgePointId: string;
+        knowledgePointName: string;
+        total: number;
+        wrongCount: number;
+        correctCount: number;
+        correctRate: number;
+      }
+    >();
+
+    for (const item of wrongQuestions) {
+      const key = item.knowledgePoint?.id ?? `question-${item.questionId}`;
+      const current = wrongQuestionWeakMap.get(key) ?? {
+        knowledgePointId: key,
+        knowledgePointName: item.knowledgePoint?.name ?? '待补充知识点',
+        total: 0,
+        wrongCount: 0,
+        correctCount: 0,
+        correctRate: 0,
+      };
+
+      const wrongCountForQuestion = Math.max(1, item.wrongCount);
+      current.total += wrongCountForQuestion;
+      current.wrongCount += wrongCountForQuestion;
+      current.correctRate = toPercent(current.correctCount, current.total);
+      wrongQuestionWeakMap.set(key, current);
+    }
+
+    const weakKnowledgePoints =
+      reportWeakKnowledgePoints.length > 0
+        ? reportWeakKnowledgePoints
+        : [...wrongQuestionWeakMap.values()]
+            .sort((a, b) => b.wrongCount - a.wrongCount)
+            .slice(0, 6);
 
     const knowledgeRadar =
       weakKnowledgePoints.length > 0

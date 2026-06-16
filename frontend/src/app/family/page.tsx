@@ -473,17 +473,23 @@ export default function FamilyPage() {
             <article className="portal-board px-5 py-5 sm:px-6">
               <h3 className="font-math-display text-3xl font-extrabold text-ink">薄弱知识点</h3>
               <div className="mt-5 grid gap-3">
-                {overview.weakKnowledgePoints.map((item) => (
-                  <div key={item.knowledgePointId} className="rounded-[1.3rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 break-words font-semibold text-ink">{item.knowledgePointName}</p>
-                      <span className="shrink-0 text-sm font-black text-orange-600">{item.correctRate}%</span>
+                {overview.weakKnowledgePoints.length > 0 ? (
+                  overview.weakKnowledgePoints.map((item) => (
+                    <div key={item.knowledgePointId} className="rounded-[1.3rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 break-words font-semibold text-ink">{item.knowledgePointName}</p>
+                        <span className="shrink-0 text-sm font-black text-orange-600">{item.correctRate}%</span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">
+                        共练习 {item.total} 题，答错 {item.wrongCount} 题。
+                      </p>
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">
-                      共练习 {item.total} 题，答错 {item.wrongCount} 题。
-                    </p>
+                  ))
+                ) : (
+                  <div className="rounded-[1.3rem] border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-7 text-slate-500">
+                    当前还没有足够的练习或错题数据。孩子完成练习后，这里会显示需要优先补强的知识点。
                   </div>
-                ))}
+                )}
               </div>
             </article>
 
