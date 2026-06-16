@@ -17,6 +17,7 @@ interface AiQaFormValues {
 }
 
 const practiceQueueStorageKey = 'student-practice-queue';
+const aiQaResultStorageKey = 'student-ai-qa-last-result';
 const supportedImageMimeTypes = new Set([
   'image/jpeg',
   'image/png',
@@ -26,6 +27,16 @@ const supportedImageMimeTypes = new Set([
 ]);
 const supportedImageFormatText = 'JPG、PNG、WebP、GIF、BMP';
 const maxOriginalImageBytes = 12 * 1024 * 1024;
+
+interface AiQaResultCache {
+  userId?: string;
+  result: AiQaResult;
+  originalQuestion: string;
+  questionType: string;
+  optionsText: string;
+  helperMessage: string;
+  savedAt: string;
+}
 
 function buildPreviewLines(preview: string) {
   return preview
@@ -47,6 +58,41 @@ function buildQuestionPayload(originalQuestion: string, questionType: string, op
   }
 
   return originalQuestion;
+}
+
+function readCachedAiQaResult() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(aiQaResultStorageKey);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<AiQaResultCache>;
+    if (!parsed.result?.originalQuestion || !Array.isArray(parsed.result.steps)) {
+      return null;
+    }
+
+    return parsed as AiQaResultCache;
+  } catch {
+    window.localStorage.removeItem(aiQaResultStorageKey);
+    return null;
+  }
+}
+
+function writeCachedAiQaResult(cache: AiQaResultCache) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(aiQaResultStorageKey, JSON.stringify(cache));
+  } catch {
+    window.localStorage.removeItem(aiQaResultStorageKey);
+  }
 }
 
 async function compressImageForOcr(file: File): Promise<string> {
@@ -123,6 +169,7 @@ export default function StudentAiQaPage() {
   const [selectedImageDataUrl, setSelectedImageDataUrl] = useState('');
   const [ocrDraftText, setOcrDraftText] = useState('');
   const [ocrStatus, setOcrStatus] = useState('');
+  const [cacheRestored, setCacheRestored] = useState(false);
 
   const previewLines = useMemo(() => buildPreviewLines(streamPreview), [streamPreview]);
 
@@ -154,6 +201,35 @@ export default function StudentAiQaPage() {
 
     void syncUser();
   }, [accessToken, currentUser, setSession]);
+
+  useEffect(() => {
+    if (cacheRestored || (!accessToken && !currentUser)) {
+      return;
+    }
+
+    const cached = readCachedAiQaResult();
+    if (!cached) {
+      setCacheRestored(true);
+      return;
+    }
+
+    if (cached.userId && !currentUser?.id) {
+      return;
+    }
+
+    if (cached.userId && currentUser?.id && cached.userId !== currentUser.id) {
+      setCacheRestored(true);
+      return;
+    }
+
+    setResult(cached.result);
+    setValue('originalQuestion', cached.originalQuestion || cached.result.originalQuestion);
+    setQuestionType(cached.questionType || 'SHORT_ANSWER');
+    setOptionsText(cached.optionsText || '');
+    setHelperMessage(cached.helperMessage || '已从浏览器缓存恢复上一次讲解。');
+    setStreamStatus('已恢复上一次讲解结果。');
+    setCacheRestored(true);
+  }, [accessToken, cacheRestored, currentUser, setValue]);
 
   const runAiExplain = async (
     questionText: string,
@@ -217,6 +293,15 @@ export default function StudentAiQaPage() {
       );
 
       setResult(data);
+      writeCachedAiQaResult({
+        userId: currentUser?.id,
+        result: data,
+        originalQuestion: questionText.trim() || data.originalQuestion,
+        questionType,
+        optionsText,
+        helperMessage: nextHelperMessage || '已保存上一次讲解，刷新页面后会自动恢复。',
+        savedAt: new Date().toISOString(),
+      });
       awardStars(currentUser?.id, 2);
       return true;
     } catch (error) {
