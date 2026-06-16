@@ -164,6 +164,7 @@ export default function FamilyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [showBindForm, setShowBindForm] = useState(false);
 
   const form = useForm<BindChildFormValues>({
     mode: 'onChange',
@@ -227,6 +228,7 @@ export default function FamilyPage() {
       setSelectedChildId(result.child.id);
       const refreshed = await familyService.getOverview(result.child.id);
       setOverview(refreshed);
+      setShowBindForm(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : '绑定孩子失败。');
     } finally {
@@ -235,6 +237,7 @@ export default function FamilyPage() {
   });
 
   const hasBinding = Boolean(overview?.bindingOptions.length);
+  const shouldShowBindForm = !hasBinding || showBindForm;
   const chartCauseTotal = useMemo(
     () =>
       (overview?.wrongCauseBreakdown ?? []).reduce((sum, item) => sum + item.count, 0),
@@ -314,17 +317,26 @@ export default function FamilyPage() {
             </div>
 
             {hasBinding ? (
-              <select
-                value={selectedChildId}
-                onChange={(event) => setSelectedChildId(event.target.value)}
-                className="math-input min-w-[220px]"
-              >
-                {overview?.bindingOptions.map((binding) => (
-                  <option key={binding.id} value={binding.student.id}>
-                    {binding.student.displayName} · {binding.student.className ?? '未分班'} · {binding.relationLabel}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={selectedChildId}
+                  onChange={(event) => setSelectedChildId(event.target.value)}
+                  className="math-input min-w-[220px]"
+                >
+                  {overview?.bindingOptions.map((binding) => (
+                    <option key={binding.id} value={binding.student.id}>
+                      {binding.student.displayName} · {binding.student.className ?? '未分班'} · {binding.relationLabel}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowBindForm((current) => !current)}
+                  className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+                >
+                  {showBindForm ? '收起绑定' : '添加孩子'}
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -359,42 +371,49 @@ export default function FamilyPage() {
             }
           />
 
-          <form className="mt-5 space-y-4" onSubmit={handleBindChild}>
-            <div>
-              <label className="mb-2 block text-sm font-extrabold text-slate-700">学生学号</label>
-              <input
-                {...form.register('studentCode', { required: '请输入学生学号' })}
-                className="math-input"
-                placeholder="请输入学生账号里的学号"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-extrabold text-slate-700">学生密码</label>
-              <input
-                {...form.register('studentPassword', { required: '请输入学生密码' })}
-                type="password"
-                className="math-input"
-                placeholder="请输入学生当前登录密码"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-extrabold text-slate-700">关系</label>
-              <select {...form.register('relationLabel', { required: true })} className="math-input">
-                {relationOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="math-button-primary w-full rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-60"
-            >
-              {submitting ? '正在绑定孩子...' : '绑定孩子并查看数据'}
-            </button>
-          </form>
+          {shouldShowBindForm ? (
+            <form className="mt-5 space-y-4" onSubmit={handleBindChild}>
+              {hasBinding ? (
+                <div className="rounded-[1.2rem] bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
+                  已绑定的孩子会继续保留。这里用于添加另一个孩子账号。
+                </div>
+              ) : null}
+              <div>
+                <label className="mb-2 block text-sm font-extrabold text-slate-700">学生学号</label>
+                <input
+                  {...form.register('studentCode', { required: '请输入学生学号' })}
+                  className="math-input"
+                  placeholder="请输入学生账号里的学号"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-extrabold text-slate-700">学生密码</label>
+                <input
+                  {...form.register('studentPassword', { required: '请输入学生密码' })}
+                  type="password"
+                  className="math-input"
+                  placeholder="请输入学生当前登录密码"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-extrabold text-slate-700">关系</label>
+                <select {...form.register('relationLabel', { required: true })} className="math-input">
+                  {relationOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="math-button-primary w-full rounded-[1rem] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-60"
+              >
+                {submitting ? '正在绑定孩子...' : '绑定孩子并查看数据'}
+              </button>
+            </form>
+          ) : null}
         </article>
       </section>
 
