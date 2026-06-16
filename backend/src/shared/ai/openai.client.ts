@@ -172,19 +172,21 @@ export class OpenAiClient {
         {
           type: 'text',
           text: [
-            '请识别这道小学数学题。',
-            '优先返回 JSON，字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
+            '请只识别这道小学数学题，不要讲解。',
+            '只返回 JSON，不要 Markdown，不要额外文字。',
+            '字段包含 recognizedText、confidence、questionType、options、note、needsManualConfirmation。',
+            'recognizedText 保留题干，options 只放选项，note 不超过 20 个汉字。',
             `年级参考：${input.grade ?? '未知'}`,
             `预期题型：${input.questionType ?? '未指定'}`,
             `补充提示：${input.manualHint?.trim() || '无'}`,
-            '如果无法严格返回 JSON，也请至少返回完整题干、选项和人工确认提示。',
+            '如果识别不清，recognizedText 返回空字符串，needsManualConfirmation 返回 true。',
           ].join('\n'),
         },
       ];
       const request: ChatCompletionCreateParamsNonStreaming = {
         model: this.visionModel,
-        temperature: 0.2,
-        max_tokens: 1000,
+        temperature: 0,
+        max_tokens: 500,
         messages: [
           {
             role: 'user',
