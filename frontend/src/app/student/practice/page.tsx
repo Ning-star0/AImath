@@ -102,6 +102,7 @@ export default function StudentPracticePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTitle, setAiTitle] = useState('AI 辅助');
   const [aiResult, setAiResult] = useState<Awaited<ReturnType<typeof aiService.askQuestion>> | null>(null);
+  const [aiError, setAiError] = useState('');
   const [pageTip, setPageTip] = useState('');
   const [pageTipTone, setPageTipTone] = useState<PageTipTone>('info');
   const [selectedSubject, setSelectedSubject] = useState('MATH');
@@ -227,6 +228,7 @@ export default function StudentPracticePage() {
   const handleSelectQuestion = (index: number) => {
     setActiveIndex(index);
     setAiResult(null);
+    setAiError('');
     setPageTip('');
     setPageTipTone('info');
   };
@@ -271,6 +273,7 @@ export default function StudentPracticePage() {
     setSubmitting(true);
     setPageTip('');
     setPageTipTone('info');
+    setAiError('');
 
     try {
       const response = await exerciseService.submit({
@@ -321,7 +324,11 @@ export default function StudentPracticePage() {
     }
 
     if (mode !== 'GIVE_HINT' && !hasAnsweredActiveQuestion) {
-      setPageTip('先提交这道题，再查看讲解或换一种讲法。未作答前 AI 只提供一步提示，不直接给答案。');
+      const lockedMessage = '先提交这道题，再查看讲解或换一种讲法。未作答前 AI 只提供一步提示，不直接给答案。';
+      setAiTitle(title);
+      setAiResult(null);
+      setAiError(lockedMessage);
+      setPageTip(lockedMessage);
       setPageTipTone('info');
       return;
     }
@@ -329,6 +336,7 @@ export default function StudentPracticePage() {
     setAiLoading(true);
     setAiTitle(title);
     setAiResult(null);
+    setAiError('');
 
     try {
       const response = await aiService.askQuestion({
@@ -345,7 +353,7 @@ export default function StudentPracticePage() {
 
       setAiResult(response);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'AI 辅助暂时不可用，请稍后再试。');
+      setAiError(requestError instanceof Error ? requestError.message : 'AI 辅助暂时不可用，请稍后再试。');
     } finally {
       setAiLoading(false);
     }
@@ -507,22 +515,31 @@ export default function StudentPracticePage() {
           <button
             type="button"
             onClick={() => void requestAiSupport('REPHRASE_EXPLANATION', '换一种讲法')}
-            disabled={!hasAnsweredActiveQuestion}
+            aria-disabled={!hasAnsweredActiveQuestion}
             title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再使用'}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-45"
+            className={`flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 ${
+              hasAnsweredActiveQuestion ? '' : 'opacity-45'
+            }`}
           >
             换种讲法
           </button>
           <button
             type="button"
             onClick={() => void requestAiSupport('REVIEW_QUESTION', '完整讲解')}
-            disabled={!hasAnsweredActiveQuestion}
+            aria-disabled={!hasAnsweredActiveQuestion}
             title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再查看讲解'}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-45"
+            className={`flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 ${
+              hasAnsweredActiveQuestion ? '' : 'opacity-45'
+            }`}
           >
             完整讲解
           </button>
         </div>
+        {!hasAnsweredActiveQuestion ? (
+          <p className="mb-3 text-xs leading-5 text-slate-500">
+            未提交答案前只开放一步提示，避免直接透出答案。
+          </p>
+        ) : null}
 
         {/* Mobile question nav toggle */}
         <button
@@ -591,7 +608,9 @@ export default function StudentPracticePage() {
         ) : null}
 
         {/* AI result */}
-        {aiResult ? <CompactAiResult title={aiTitle} result={aiResult} loading={aiLoading} error="" /> : null}
+        {aiLoading || aiResult || aiError ? (
+          <CompactAiResult title={aiTitle} result={aiResult} loading={aiLoading} error={aiError} />
+        ) : null}
       </div>
 
       {/* Desktop layout */}
@@ -789,18 +808,22 @@ export default function StudentPracticePage() {
                   <button
                     type="button"
                     onClick={() => void requestAiSupport('REPHRASE_EXPLANATION', '换一种讲法')}
-                    disabled={!hasAnsweredActiveQuestion}
+                    aria-disabled={!hasAnsweredActiveQuestion}
                     title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再使用'}
-                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
+                    className={`math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 ${
+                      hasAnsweredActiveQuestion ? '' : 'opacity-45'
+                    }`}
                   >
                     换一种讲法
                   </button>
                   <button
                     type="button"
                     onClick={() => void requestAiSupport('REVIEW_QUESTION', '完整讲解')}
-                    disabled={!hasAnsweredActiveQuestion}
+                    aria-disabled={!hasAnsweredActiveQuestion}
                     title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再查看讲解'}
-                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
+                    className={`math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 ${
+                      hasAnsweredActiveQuestion ? '' : 'opacity-45'
+                    }`}
                   >
                     查看讲解
                   </button>
@@ -886,7 +909,9 @@ export default function StudentPracticePage() {
                 </div>
               </div>
 
-              {aiResult ? <CompactAiResult title={aiTitle} result={aiResult} loading={aiLoading} error="" /> : null}
+              {aiLoading || aiResult || aiError ? (
+                <CompactAiResult title={aiTitle} result={aiResult} loading={aiLoading} error={aiError} />
+              ) : null}
 
               <Link
                 href="/student"
