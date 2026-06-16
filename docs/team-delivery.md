@@ -75,7 +75,7 @@ cp frontend/.env.example frontend/.env.local
 
 ```env
 OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_MODEL=deepseek-chat
+OPENAI_MODEL=deepseek-v4-flash
 ```
 
 ## 6. Docker 启动步骤
@@ -222,7 +222,7 @@ docker ps
 
 ```env
 OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_MODEL=deepseek-chat
+OPENAI_MODEL=deepseek-v4-flash
 ```
 
 ### 12.3 数据库字段不一致
