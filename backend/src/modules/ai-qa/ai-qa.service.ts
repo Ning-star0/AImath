@@ -156,7 +156,6 @@ export class AiQaService {
       let answer: StructuredAiAnswer;
 
       if (hasImage) {
-        // Image mode: send heartbeat while waiting for vision API
         this.writeEvent(response, 'status', {
           stage: 'thinking',
           message: '正在识别图片中的题目内容...',
@@ -165,14 +164,45 @@ export class AiQaService {
         const heartbeat = setInterval(() => {
           this.writeEvent(response, 'status', {
             stage: 'thinking',
-            message: '视觉模型正在分析题目，请耐心等待...',
+            message: '正在从图片里提取题干和选项...',
           });
         }, 5000);
 
+        let extracted: OcrExtractionResult;
         try {
-          answer = await this.openAiClient.answerMathQuestion(input);
+          extracted = await this.openAiClient.extractMathQuestionFromImage({
+            imageDataUrl: payload.imageDataUrl!.trim(),
+            manualHint: payload.manualHint?.trim() || payload.originalQuestion,
+            questionType: payload.questionType,
+            grade: payload.grade,
+          });
         } finally {
           clearInterval(heartbeat);
+        }
+
+        if (extracted.recognizedText.trim()) {
+          const recognizedQuestion = [
+            extracted.recognizedText.trim(),
+            extracted.options.length ? `选项：${extracted.options.join('；')}` : '',
+            payload.manualHint?.trim() ? `补充说明：${payload.manualHint.trim()}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          this.writeEvent(response, 'status', {
+            stage: 'thinking',
+            message: '已识别题目，正在生成讲解...',
+          });
+
+          answer = await this.openAiClient.answerMathQuestion({
+            ...input,
+            originalQuestion: recognizedQuestion,
+            imageDataUrl: undefined,
+            questionType: extracted.questionType || input.questionType,
+            options: extracted.options.length ? extracted.options : input.options,
+          });
+        } else {
+          answer = this.buildImageRecognitionFallbackAnswer(input, extracted);
         }
 
         await this.emitPreview(response, answer);
@@ -326,6 +356,29 @@ export class AiQaService {
       });
       await this.delay(80);
     }
+  }
+
+  private buildImageRecognitionFallbackAnswer(
+    input: {
+      originalQuestion: string;
+      grade?: number;
+    },
+    extracted: OcrExtractionResult,
+  ): StructuredAiAnswer {
+    return {
+      originalQuestion: input.originalQuestion || '图片数学题',
+      steps: [
+        '这张图片里的题干没有稳定识别出来。',
+        '请重新截取题目区域，尽量只保留题干和选项。',
+        '如果图片比较模糊，可以在左侧补充题干文字后再讲解。',
+      ],
+      finalAnswer: '暂时无法直接给出可靠答案，请补充清晰题干后再试。',
+      knowledgePoints: ['图片识题', '题干理解'],
+      difficulty: input.grade && input.grade >= 5 ? 'MEDIUM' : 'EASY',
+      riskNotice:
+        extracted.note || '图片识别结果为空，为避免讲错题目，本次没有继续生成答案。',
+      similarQuestions: [],
+    };
   }
 
   private delay(ms: number) {
