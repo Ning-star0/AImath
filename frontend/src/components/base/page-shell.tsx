@@ -36,6 +36,19 @@ const familyNavItems = [
   { href: '/student/ai-qa', label: 'AI 讲题' },
 ];
 
+const teacherNavItems = [
+  { href: '/teacher', label: '教师首页' },
+  { href: '/teacher/students', label: '学生列表' },
+];
+
+const adminNavItems = [
+  { href: '/admin', label: '管理首页' },
+  { href: '/admin/classes', label: '班级管理' },
+  { href: '/admin/governance', label: '治理日志' },
+  { href: '/admin/questions', label: '题库管理' },
+  { href: '/admin/users', label: '用户列表' },
+];
+
 function getUserDisplayName(displayName?: string | null) {
   if (!displayName) {
     return '数学伙伴';
@@ -55,11 +68,27 @@ function getRoleLabel(pathname: string, role?: UserRole | null) {
   return '学生端';
 }
 
-function getDefaultNavItems(pathname: string, role?: UserRole | null) {
+function getRoleNavItems(role?: UserRole | null) {
+  if (role === 'ADMIN') return adminNavItems;
+  if (role === 'TEACHER') return teacherNavItems;
   if (role === 'PARENT') return familyNavItems;
   if (role === 'STUDENT') return studentNavItems;
+  return null;
+}
+
+function getPathNavItems(pathname: string) {
+  if (pathname.startsWith('/admin')) return adminNavItems;
+  if (pathname.startsWith('/teacher')) return teacherNavItems;
   if (pathname.startsWith('/family')) return familyNavItems;
   return studentNavItems;
+}
+
+function shouldUseSectionNav(pathname: string, role?: UserRole | null) {
+  if (!role) return true;
+  if (role === 'ADMIN') return pathname.startsWith('/admin');
+  if (role === 'TEACHER') return pathname.startsWith('/teacher');
+  if (role === 'PARENT') return pathname.startsWith('/family');
+  return pathname.startsWith('/student');
 }
 
 function isNavActive(pathname: string, href: string) {
@@ -102,7 +131,11 @@ export function PageShell({
     return () => document.removeEventListener('click', handleClickOutside);
   }, [menuOpen]);
 
-  const mergedNavItems = navItems ?? getDefaultNavItems(pathname, currentUser?.role);
+  const roleNavItems = getRoleNavItems(currentUser?.role);
+  const mergedNavItems =
+    navItems && shouldUseSectionNav(pathname, currentUser?.role)
+      ? navItems
+      : roleNavItems ?? navItems ?? getPathNavItems(pathname);
   const accountLabel = useMemo(
     () => getUserDisplayName(currentUser?.displayName),
     [currentUser?.displayName],
@@ -110,8 +143,7 @@ export function PageShell({
   const profilePath = getRoleProfilePath(currentUser?.role);
   const roleLabel = getRoleLabel(pathname, currentUser?.role);
   const shouldShowDescription = showPageIntro && !pathname.startsWith('/student');
-  const isStudent = currentUser?.role === 'STUDENT' || pathname.startsWith('/student');
-  const showBottomTabs = isStudent && currentUser;
+  const showBottomTabs = currentUser?.role === 'STUDENT' && pathname.startsWith('/student');
 
   const handleLogout = () => {
     clearSession();
