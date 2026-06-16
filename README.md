@@ -37,16 +37,18 @@
 
 | 功能 | 说明 |
 |------|------|
-| 练习闯关 | 按年级/知识点筛题，提交后即时批改反馈，冒险地图式入口 |
-| AI 讲题 | 文本输入或拍照上传，AI 分步讲解，支持 5 种教学模式 |
+| 练习闯关 | 按年级/知识点筛题，默认打开第一道待做题，提交后即时批改反馈，冒险地图式入口 |
+| AI 讲题 | 文本输入、图片上传或截图粘贴，AI 分步讲解，支持 5 种教学模式 |
 | 错题本 | 按题型/年级筛选，重练答对自动移除，支持归档 |
 | 学习报告 | 总做题数/正确率/知识点掌握度/学习趋势，AI 学习总结 |
 | 个人中心 | 年级切换、个人信息 |
 
 #### AI 讲题特色
 
-- **双模型协作**：DeepSeek 负责文本分步讲解，豆包视觉模型负责图片 OCR 识别题目
+- **双模型协作**：DeepSeek V4 Flash 负责文本分步讲解，豆包视觉模型负责图片 OCR 识别题目
 - **SSE 流式输出**：AI 逐字推送，学生实时看到讲解内容，不等全部生成完
+- **图片题优化**：支持本地图片上传、手机拍照上传、电脑截图后直接 Ctrl+V 粘贴；浏览器会保留最近一次 AI 讲题结果
+- **练习页防泄题**：未作答前只开放“一步提示”，完整讲解和换种讲法需要先提交当前答案
 - **5 种教学模式**：完整讲解 / 先审题不展开 / 只提示一步 / 换种讲法 / 错因分析
 - **安全过滤**：自动拒绝暴力、色情、政治等不适合小学生的内容
 - **结构化输出**：steps 分步讲解、finalAnswer 答案、knowledgePoints 知识点、similarQuestions 相似题推荐
@@ -59,7 +61,8 @@
 
 ### 家长端
 
-- 绑定孩子账号（输入学生学号和密码）
+- 从家长端主页绑定孩子账号（输入学生学号和密码）
+- 已绑定孩子后默认展示学习画像，绑定表单会收起，可通过“添加孩子”继续绑定
 - 查看绑定孩子的做题数据、错题、AI 问答次数
 - AI 学习建议
 
@@ -84,9 +87,9 @@
 | 缓存 | Redis |
 | 认证 | JWT + bcryptjs |
 | API 文档 | Swagger |
-| AI 文本模型 | DeepSeek (OpenAI-compatible API) |
+| AI 文本模型 | DeepSeek V4 Flash (OpenAI-compatible API) |
 | AI 视觉模型 | 豆包 (Volcengine Ark) |
-| 部署 | Docker + Docker Compose + Nginx |
+| 部署 | Docker Compose + Nginx；生产服务器也可用 `pnpm start` 分别运行前后端 |
 
 ## 目录结构
 
@@ -225,7 +228,7 @@ pnpm dev
 | `JWT_EXPIRES_IN` | Token 过期时间 |
 | `OPENAI_BASE_URL` | AI 文本模型 API 地址 |
 | `OPENAI_API_KEY` | AI 文本模型 API 密钥 |
-| `OPENAI_MODEL` | AI 文本模型名称 |
+| `OPENAI_MODEL` | AI 文本模型名称，当前推荐 `deepseek-v4-flash` |
 | `OPENAI_VISION_BASE_URL` | AI 视觉模型 API 地址 |
 | `OPENAI_VISION_API_KEY` | AI 视觉模型 API 密钥 |
 | `OPENAI_VISION_MODEL` | AI 视觉模型名称 |
@@ -310,7 +313,9 @@ cd backend && npx prisma studio
 | 前端能打开但接口请求失败 | 后端是否启动；`NEXT_PUBLIC_API_BASE_URL` 是否正确 |
 | Docker 启动后页面是旧样式 | `docker compose up -d --build frontend nginx`，然后强制刷新 |
 | 登录成功但接口提示未授权 | 检查 localStorage 是否有 token；token 是否过期 |
-| AI 没有真实回答 | `OPENAI_API_KEY` 是否正确；api 地址是否可达 |
+| AI 没有真实回答 | `OPENAI_API_KEY`、`OPENAI_MODEL`、api 地址是否正确；确认后端日志没有模型调用错误 |
+| 图片上传失败 | 支持 JPG、PNG、WebP、GIF、BMP；HEIC/HEIF 需要先转成 JPG 或 PNG |
+| 练习页点“查看讲解”没出答案 | 未提交当前题前不会直接给完整讲解，请先提交答案；未作答时只能点“一步提示” |
 | 数据库结构不一致 | `prisma generate` + `prisma db push` |
 
 ## 后续规划
