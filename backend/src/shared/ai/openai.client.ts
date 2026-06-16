@@ -341,6 +341,7 @@ export class OpenAiClient {
           text: [
             '你是一名小学数学讲题老师。请结合图片题目直接给出结构化讲解，并尽量返回 JSON。',
             '字段必须包含 originalQuestion、steps、finalAnswer、knowledgePoints、difficulty、riskNotice、similarQuestions。',
+            '讲解要短：steps 最多 4 步，每步不超过 45 个汉字；knowledgePoints 最多 3 个；similarQuestions 只给 1 道。',
             `年级：${input.grade ?? '未知'}`,
             `题型：${input.questionType ?? '未指定'}`,
             `补充提示：${input.manualHint?.trim() || input.originalQuestion || '无'}`,
@@ -353,7 +354,7 @@ export class OpenAiClient {
       const request: ChatCompletionCreateParamsNonStreaming = {
         model: this.visionModel,
         temperature: 0.3,
-        max_tokens: 1500,
+        max_tokens: 900,
         messages: [
           {
             role: 'user',

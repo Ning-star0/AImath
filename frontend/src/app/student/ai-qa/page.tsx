@@ -62,8 +62,8 @@ async function compressImageForOcr(file: File): Promise<string> {
     throw new Error('图片文件过大，请先裁剪或压缩到 12MB 以内。');
   }
 
-  const maxSide = 1600;
-  const outputQuality = 0.78;
+  const maxSide = 1280;
+  const outputQuality = 0.68;
   const objectUrl = URL.createObjectURL(file);
   const image = new Image();
 
