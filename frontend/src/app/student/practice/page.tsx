@@ -158,7 +158,7 @@ export default function StudentPracticePage() {
         const nextStatusMap = buildStatusMap(reportData);
         setQuestions(mergedQuestions);
         setStatusMap(nextStatusMap);
-        setActiveIndex((current) => {
+        setActiveIndex(() => {
           if (mergedQuestions.length === 0) {
             return 0;
           }
@@ -170,9 +170,7 @@ export default function StudentPracticePage() {
             }
           }
 
-          return current < mergedQuestions.length
-            ? current
-            : getFirstPendingIndex(mergedQuestions, nextStatusMap);
+          return getFirstPendingIndex(mergedQuestions, nextStatusMap);
         });
 
         if (retryQuestionId) {
