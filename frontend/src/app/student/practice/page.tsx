@@ -195,6 +195,7 @@ export default function StudentPracticePage() {
     [activeQuestion?.id, result?.details],
   );
   const activeStatus = activeQuestion ? statusMap.get(activeQuestion.id) ?? 'UNANSWERED' : 'UNANSWERED';
+  const hasAnsweredActiveQuestion = Boolean(activeQuestion && (activeResult || activeStatus !== 'UNANSWERED'));
   const correctCount = useMemo(() => [...statusMap.values()].filter((item) => item === 'CORRECT').length, [statusMap]);
   const accuracyRate = answeredCount === 0 ? 0 : Number(((correctCount / answeredCount) * 100).toFixed(0));
   const stageSummaries = useMemo(() => buildStageSummaries(questions, statusMap), [questions, statusMap]);
@@ -316,6 +317,12 @@ export default function StudentPracticePage() {
 
   const requestAiSupport = async (mode: AiMode, title: string) => {
     if (!activeQuestion) {
+      return;
+    }
+
+    if (mode !== 'GIVE_HINT' && !hasAnsweredActiveQuestion) {
+      setPageTip('先提交这道题，再查看讲解或换一种讲法。未作答前 AI 只提供一步提示，不直接给答案。');
+      setPageTipTone('info');
       return;
     }
 
@@ -500,14 +507,18 @@ export default function StudentPracticePage() {
           <button
             type="button"
             onClick={() => void requestAiSupport('REPHRASE_EXPLANATION', '换一种讲法')}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600"
+            disabled={!hasAnsweredActiveQuestion}
+            title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再使用'}
+            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-45"
           >
             换种讲法
           </button>
           <button
             type="button"
             onClick={() => void requestAiSupport('REVIEW_QUESTION', '完整讲解')}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600"
+            disabled={!hasAnsweredActiveQuestion}
+            title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再查看讲解'}
+            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-45"
           >
             完整讲解
           </button>
@@ -778,18 +789,27 @@ export default function StudentPracticePage() {
                   <button
                     type="button"
                     onClick={() => void requestAiSupport('REPHRASE_EXPLANATION', '换一种讲法')}
-                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+                    disabled={!hasAnsweredActiveQuestion}
+                    title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再使用'}
+                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     换一种讲法
                   </button>
                   <button
                     type="button"
                     onClick={() => void requestAiSupport('REVIEW_QUESTION', '完整讲解')}
-                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700"
+                    disabled={!hasAnsweredActiveQuestion}
+                    title={hasAnsweredActiveQuestion ? undefined : '先提交答案后再查看讲解'}
+                    className="math-button-secondary rounded-[1rem] px-4 py-3 text-sm font-extrabold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     查看讲解
                   </button>
                 </div>
+                {!hasAnsweredActiveQuestion ? (
+                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                    未提交答案前只开放一步提示，避免直接透出答案。
+                  </p>
+                ) : null}
               </div>
 
               <div className="rounded-[1.6rem] border border-brand-100 bg-white px-5 py-5 shadow-sm">
