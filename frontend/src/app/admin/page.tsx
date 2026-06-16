@@ -39,6 +39,10 @@ export default function AdminPage() {
   }, [hydrateSession]);
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'ADMIN') {
+      return;
+    }
+
     const load = async () => {
       try {
         const [dashboardData, aiConfigData] = await Promise.all([
@@ -53,7 +57,7 @@ export default function AdminPage() {
     };
 
     void load();
-  }, []);
+  }, [accessToken, currentUser?.role]);
 
   const statCards = useMemo(
     () =>

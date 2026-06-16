@@ -140,8 +140,12 @@ export default function AdminQuestionsPage() {
   }, [gradeFilter, page, pageSize, questionTypeFilter]);
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'ADMIN') {
+      return;
+    }
+
     void loadQuestions();
-  }, [loadQuestions]);
+  }, [accessToken, currentUser?.role, loadQuestions]);
 
   const allSelectableIds = useMemo(() => data?.list.map((item) => item.id) ?? [], [data]);
 

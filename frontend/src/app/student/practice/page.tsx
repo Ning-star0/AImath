@@ -124,7 +124,7 @@ export default function StudentPracticePage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!accessToken) {
+      if (!accessToken || (currentUser?.role && currentUser.role !== 'STUDENT')) {
         return;
       }
 
@@ -135,6 +135,10 @@ export default function StudentPracticePage() {
         const resolvedUser = currentUser ?? (await authService.getCurrentUser());
         if (!currentUser) {
           setSession(accessToken, resolvedUser);
+        }
+
+        if (resolvedUser.role !== 'STUDENT') {
+          return;
         }
 
         const grade = resolvedUser.grade ?? resolvedUser.student?.grade ?? 3;

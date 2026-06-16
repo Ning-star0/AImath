@@ -129,8 +129,12 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'ADMIN') {
+      return;
+    }
+
     void load();
-  }, []);
+  }, [accessToken, currentUser?.role]);
 
   const filteredList = useMemo(
     () =>

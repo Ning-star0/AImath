@@ -47,10 +47,12 @@ export default function AdminGovernancePage() {
       }
     };
 
-    if (accessToken) {
-      void load();
+    if (!accessToken || currentUser?.role !== 'ADMIN') {
+      return;
     }
-  }, [accessToken]);
+
+    void load();
+  }, [accessToken, currentUser?.role]);
 
   if (!accessToken && !currentUser) {
     return (

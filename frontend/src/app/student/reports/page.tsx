@@ -74,6 +74,10 @@ export default function StudentReportsPage() {
   }, [accessToken, currentUser, setSession]);
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'STUDENT') {
+      return;
+    }
+
     const loadReport = async () => {
       try {
         const data = await reportService.getOverview();
@@ -84,10 +88,10 @@ export default function StudentReportsPage() {
     };
 
     void loadReport();
-  }, []);
+  }, [accessToken, currentUser?.role]);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || currentUser?.role !== 'STUDENT') {
       return;
     }
 
@@ -107,7 +111,7 @@ export default function StudentReportsPage() {
       window.removeEventListener('focus', refreshReport);
       document.removeEventListener('visibilitychange', refreshReport);
     };
-  }, [accessToken]);
+  }, [accessToken, currentUser?.role]);
 
   useEffect(() => {
     if (!currentUser?.id) {

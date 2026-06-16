@@ -98,7 +98,7 @@ export default function WrongbookPage() {
   }, [grade, questionType]);
 
   useEffect(() => {
-    if (!accessToken && !currentUser) {
+    if (!accessToken || currentUser?.role !== 'STUDENT') {
       return;
     }
 

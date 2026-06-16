@@ -73,7 +73,7 @@ export default function StudentHomePage() {
 
   useEffect(() => {
     const loadStudentHomeData = async () => {
-      if (!accessToken) {
+      if (!accessToken || (currentUser?.role && currentUser.role !== 'STUDENT')) {
         return;
       }
 
@@ -85,6 +85,10 @@ export default function StudentHomePage() {
 
         if (!currentUser) {
           setSession(accessToken, resolvedUser);
+        }
+
+        if (resolvedUser.role !== 'STUDENT') {
+          return;
         }
 
         const grade = resolvedUser.grade ?? resolvedUser.student?.grade ?? 3;

@@ -52,6 +52,10 @@ export default function TeacherStudentsPage() {
   }, [hydrateSession]);
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'TEACHER') {
+      return;
+    }
+
     const load = async () => {
       try {
         const response = await teacherService.getStudents();
@@ -62,7 +66,7 @@ export default function TeacherStudentsPage() {
     };
 
     void load();
-  }, []);
+  }, [accessToken, currentUser?.role]);
 
   useEffect(() => {
     if (!selectedStudentId || !data?.accessControl.canViewStudents) {

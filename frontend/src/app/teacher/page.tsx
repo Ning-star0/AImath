@@ -98,8 +98,12 @@ export default function TeacherPage() {
   };
 
   useEffect(() => {
+    if (!accessToken || currentUser?.role !== 'TEACHER') {
+      return;
+    }
+
     void load();
-  }, []);
+  }, [accessToken, currentUser?.role]);
 
   const handleClassChange = (
     index: number,

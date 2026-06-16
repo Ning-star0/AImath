@@ -60,10 +60,12 @@ export default function AdminClassesPage() {
   };
 
   useEffect(() => {
-    if (accessToken) {
-      void load();
+    if (!accessToken || currentUser?.role !== 'ADMIN') {
+      return;
     }
-  }, [accessToken]);
+
+    void load();
+  }, [accessToken, currentUser?.role]);
 
   const editingClassOptions = useMemo(
     () => getClassOptionsByGrade(editingStudent?.grade ?? null),
